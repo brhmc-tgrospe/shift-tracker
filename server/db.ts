@@ -1,8 +1,16 @@
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcrypt';
+
+// Create a safe default for local development so it doesn't crash on startup if DATABASE_URL is missing
+const sql = neon(process.env.DATABASE_URL || 'postgres://placeholder:placeholder@placeholder/placeholder');
 
 // Create tables and seed
 export const initDB = async () => {
+  if (!process.env.DATABASE_URL) {
+    console.warn("DATABASE_URL is not set. Skipping database initialization.");
+    return;
+  }
+
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -30,14 +38,14 @@ export const initDB = async () => {
     `;
 
     // Seed function
-    const { rows: sysdev } = await sql`SELECT id FROM users WHERE username = 'sysdev'`;
+    const sysdev = await sql`SELECT id FROM users WHERE username = 'sysdev'`;
     if (sysdev.length === 0) {
       const hash = await bcrypt.hash('password123', 10);
       await sql`INSERT INTO users (username, email, password, "firstName", "lastName", role) VALUES ('sysdev', 'sysdev@sys.com', ${hash}, 'System', 'Developer', 'Developer')`;
       console.log('Seeded Developer Account');
     }
 
-    const { rows: testacct } = await sql`SELECT id FROM users WHERE username = 'testacct'`;
+    const testacct = await sql`SELECT id FROM users WHERE username = 'testacct'`;
     if (testacct.length === 0) {
       const hash = await bcrypt.hash('123456', 10);
       await sql`INSERT INTO users (username, email, password, "firstName", "lastName", role) VALUES ('testacct', 'testacct@test.com', ${hash}, 'Test', 'Account', 'User')`;

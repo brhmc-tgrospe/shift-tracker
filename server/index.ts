@@ -10,7 +10,7 @@ app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production';
 
-// Initialize DB on cold start (Vercel edge functions might call this often, but it handles IF NOT EXISTS)
+// Initialize DB on cold start
 initDB();
 
 // Auth Middleware
@@ -44,13 +44,13 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    const result = await sql`
+    const rows = await sql`
       INSERT INTO users (username, email, password, "firstName", "lastName", role) 
       VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, 'User')
       RETURNING id
     `;
     
-    res.status(201).json({ id: result.rows[0].id, message: 'User created successfully' });
+    res.status(201).json({ id: rows[0].id, message: 'User created successfully' });
   } catch (error: any) {
     if (error.code === '23505') {
       return res.status(400).json({ error: 'Username or email already exists' });
@@ -67,7 +67,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const { rows } = await sql`SELECT * FROM users WHERE username = ${identifier} OR email = ${identifier}`;
+    const rows = await sql`SELECT * FROM users WHERE username = ${identifier} OR email = ${identifier}`;
     const user = rows[0];
 
     if (!user) {
@@ -90,7 +90,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   const tokenUser = (req as any).user;
   try {
-    const { rows } = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${tokenUser.id}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${tokenUser.id}`;
     const user = rows[0];
     if (!user) return res.sendStatus(404);
     res.json(user);
@@ -112,7 +112,7 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     }
     
     // Fetch updated user
-    const { rows } = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${user.id}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${user.id}`;
     res.json(rows[0]);
   } catch (error: any) {
     if (error.code === '23505') {
@@ -130,7 +130,7 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
   }
 
   try {
-    const { rows } = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${userId}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${userId}`;
     const user = rows[0];
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -155,7 +155,7 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
 // Get all users
 app.get('/api/users', authenticateToken, requireDeveloper, async (req, res) => {
   try {
-    const { rows } = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users`;
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -167,12 +167,12 @@ app.post('/api/users', authenticateToken, requireDeveloper, async (req, res) => 
   const { username, email, password, firstName, lastName, role } = req.body;
   try {
     const hash = await bcrypt.hash(password, 10);
-    const result = await sql`
+    const rows = await sql`
       INSERT INTO users (username, email, password, "firstName", "lastName", role) 
       VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'})
       RETURNING id
     `;
-    res.status(201).json({ id: result.rows[0].id, message: 'User created' });
+    res.status(201).json({ id: rows[0].id, message: 'User created' });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -216,7 +216,7 @@ app.delete('/api/users/:id', authenticateToken, requireDeveloper, async (req, re
 app.get('/api/shifts', authenticateToken, async (req, res) => {
   const user = (req as any).user;
   try {
-    const { rows } = await sql`SELECT date, shift, hours, notes FROM shifts WHERE user_id = ${user.id}`;
+    const rows = await sql`SELECT date, shift, hours, notes FROM shifts WHERE user_id = ${user.id}`;
     const dayDataMap: Record<string, any> = {};
     for (const shift of rows) {
       dayDataMap[shift.date] = shift;
