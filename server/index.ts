@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
@@ -41,9 +42,16 @@ const requireDeveloper = (req: express.Request, res: express.Response, next: exp
   next();
 };
 
-// Register
+const requireAdminOrDeveloper = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const user = (req as any).user;
+  if (!user || (user.role !== 'Developer' && user.role !== 'Admin')) {
+    return res.status(403).json({ error: 'Admin or Developer access required' });
+  }
+  next();
+};
+
 app.post('/api/auth/register', async (req, res) => {
-  const { username, email, password, firstName, lastName } = req.body;
+  const { username, email, password, firstName, lastName, department_id } = req.body;
   if (!username || !email || !password || !firstName || !lastName) {
     return res.status(400).json({ error: 'All fields are required' });
   }
@@ -51,8 +59,8 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 10);
     const rows = await sql`
-      INSERT INTO users (username, email, password, "firstName", "lastName", role) 
-      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, 'User')
+      INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
+      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, 'User', ${department_id || null})
       RETURNING id
     `;
     
@@ -63,6 +71,10 @@ app.post('/api/auth/register', async (req, res) => {
     }
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+app.get('/api/debug-db', (req, res) => {
+  res.json({ dbUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'undefined' });
 });
 
 // Login
@@ -87,16 +99,16 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName } });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message, cause: error.cause ? String(error.cause) : undefined });
   }
 });
 
-// Get current user
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   const tokenUser = (req as any).user;
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${tokenUser.id}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, department_id FROM users WHERE id = ${tokenUser.id}`;
     const user = rows[0];
     if (!user) return res.sendStatus(404);
     res.json(user);
@@ -156,12 +168,16 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
   }
 });
 
-// User Management (Developer Only)
+// User Management (Developer and Admin)
 
 // Get all users
-app.get('/api/users', authenticateToken, requireDeveloper, async (req, res) => {
+app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users`;
+    const rows = await sql`
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, d.name as department_name
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+    `;
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -169,13 +185,19 @@ app.get('/api/users', authenticateToken, requireDeveloper, async (req, res) => {
 });
 
 // Create user
-app.post('/api/users', authenticateToken, requireDeveloper, async (req, res) => {
-  const { username, email, password, firstName, lastName, role } = req.body;
+app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { username, email, password, firstName, lastName, role, department_id } = req.body;
+  const user = (req as any).user;
+  
+  if (user.role === 'Admin' && (role === 'Admin' || role === 'Developer')) {
+    return res.status(403).json({ error: 'Admins cannot create Admin or Developer accounts' });
+  }
+
   try {
     const hash = await bcrypt.hash(password, 10);
     const rows = await sql`
-      INSERT INTO users (username, email, password, "firstName", "lastName", role) 
-      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'})
+      INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
+      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'}, ${department_id || null})
       RETURNING id
     `;
     res.status(201).json({ id: rows[0].id, message: 'User created' });
@@ -185,15 +207,27 @@ app.post('/api/users', authenticateToken, requireDeveloper, async (req, res) => 
 });
 
 // Update user
-app.put('/api/users/:id', authenticateToken, requireDeveloper, async (req, res) => {
+app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const { id } = req.params;
-  const { username, email, password, firstName, lastName, role } = req.body;
+  const { username, email, password, firstName, lastName, role, department_id } = req.body;
+  const currentUser = (req as any).user;
+  
   try {
+    if (currentUser.role === 'Admin') {
+      const targetUser = await sql`SELECT role FROM users WHERE id = ${id}`;
+      if (targetUser.length > 0 && (targetUser[0].role === 'Admin' || targetUser[0].role === 'Developer')) {
+        return res.status(403).json({ error: 'Admins cannot edit Admin or Developer accounts' });
+      }
+      if (role === 'Admin' || role === 'Developer') {
+         return res.status(403).json({ error: 'Admins cannot upgrade a user to Admin or Developer' });
+      }
+    }
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET username = ${username}, email = ${email}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
     } else {
-      await sql`UPDATE users SET username = ${username}, email = ${email}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
     }
     res.json({ message: 'User updated' });
   } catch (error: any) {
@@ -202,15 +236,68 @@ app.put('/api/users/:id', authenticateToken, requireDeveloper, async (req, res) 
 });
 
 // Delete user
-app.delete('/api/users/:id', authenticateToken, requireDeveloper, async (req, res) => {
+app.delete('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const { id } = req.params;
+  const currentUser = (req as any).user;
+  
   try {
-    // Prevent self-deletion
-    if (parseInt(id) === (req as any).user.id) {
+    if (parseInt(id) === currentUser.id) {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
+    
+    if (currentUser.role === 'Admin') {
+      const targetUser = await sql`SELECT role FROM users WHERE id = ${id}`;
+      if (targetUser.length > 0 && (targetUser[0].role === 'Admin' || targetUser[0].role === 'Developer')) {
+        return res.status(403).json({ error: 'Admins cannot delete Admin or Developer accounts' });
+      }
+    }
+
     await sql`DELETE FROM users WHERE id = ${id}`;
     res.json({ message: 'User deleted' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Departments Endpoints
+
+app.get('/api/departments', async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM departments ORDER BY name ASC`;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/departments', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    const rows = await sql`INSERT INTO departments (name) VALUES (${name}) RETURNING *`;
+    res.status(201).json(rows[0]);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put('/api/departments/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    await sql`UPDATE departments SET name = ${name} WHERE id = ${id}`;
+    res.json({ message: 'Department updated' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/departments/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await sql`DELETE FROM departments WHERE id = ${id}`;
+    res.json({ message: 'Department deleted' });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -233,6 +320,21 @@ app.get('/api/shifts', authenticateToken, async (req, res) => {
   }
 });
 
+// Get all shifts (for Monthly Grid, Admin/Developer only)
+app.get('/api/shifts/all', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { month } = req.query; // YYYY-MM
+  try {
+    const rows = await sql`
+      SELECT user_id, date, shift, hours, notes 
+      FROM shifts 
+      WHERE date LIKE ${month + '%'}
+    `;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update or delete shift for current user
 app.post('/api/shifts', authenticateToken, async (req, res) => {
   const user = (req as any).user;
@@ -244,10 +346,8 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
 
   try {
     if (shift === 'free' && hours === 0) {
-      // Delete the shift if it's free with 0 hours
       await sql`DELETE FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
     } else {
-      // Upsert
       await sql`
         INSERT INTO shifts (user_id, date, shift, hours, notes)
         VALUES (${user.id}, ${date}, ${shift}, ${hours}, ${notes || ''})
@@ -258,6 +358,34 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
       `;
     }
     res.json({ message: 'Shift updated' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk upsert shifts (Admin/Developer only)
+app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { shifts } = req.body; // Array of { user_id, date, shift, hours, notes }
+  if (!Array.isArray(shifts)) {
+    return res.status(400).json({ error: 'Expected shifts array' });
+  }
+
+  try {
+    for (const s of shifts) {
+      if (s.shift === 'free' && s.hours === 0) {
+        await sql`DELETE FROM shifts WHERE user_id = ${s.user_id} AND date = ${s.date}`;
+      } else {
+        await sql`
+          INSERT INTO shifts (user_id, date, shift, hours, notes)
+          VALUES (${s.user_id}, ${s.date}, ${s.shift}, ${s.hours}, ${s.notes || ''})
+          ON CONFLICT (user_id, date) DO UPDATE SET
+            shift = EXCLUDED.shift,
+            hours = EXCLUDED.hours,
+            notes = EXCLUDED.notes
+        `;
+      }
+    }
+    res.json({ message: 'Bulk shifts updated successfully' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

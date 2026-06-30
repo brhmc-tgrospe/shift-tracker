@@ -4,10 +4,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { ShiftTracker } from './components/ShiftTracker';
-import { DeveloperDashboard } from './components/DeveloperDashboard';
+import { AdminLayout } from './components/AdminLayout';
+import { UsersView } from './components/UsersView';
+import { DepartmentsView } from './components/DepartmentsView';
+import { AdminScheduleView } from './components/AdminScheduleView';
 import { Profile } from './components/Profile';
 
-function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: string }) {
+function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
@@ -18,7 +21,7 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 
     return <Navigate to="/login" replace />;
   }
 
-  if (role && user.role !== role) {
+  if (roles && !roles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 
@@ -32,14 +35,21 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
           <Route 
-            path="/developer" 
+            path="/admin" 
             element={
-              <ProtectedRoute role="Developer">
-                <DeveloperDashboard />
+              <ProtectedRoute roles={['Admin', 'Developer']}>
+                <AdminLayout />
               </ProtectedRoute>
             } 
-          />
+          >
+            <Route index element={<Navigate to="users" replace />} />
+            <Route path="users" element={<UsersView />} />
+            <Route path="departments" element={<DepartmentsView />} />
+            <Route path="schedule" element={<AdminScheduleView />} />
+          </Route>
+
           <Route 
             path="/" 
             element={

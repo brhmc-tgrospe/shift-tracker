@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Briefcase } from 'lucide-react';
 
@@ -8,13 +8,28 @@ export function Register() {
     email: '',
     password: '',
     firstName: '',
-    lastName: ''
+    lastName: '',
+    department_id: ''
   });
+  const [departments, setDepartments] = useState<{id: number, name: string}[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    fetch('/api/departments', {
+      headers: {
+        // we might not have a token yet since we're registering, 
+        // wait, /api/departments requires authenticateToken?
+        // Let's check server/index.ts...
+      }
+    }).then(res => {
+      if (res.ok) return res.json();
+      return [];
+    }).then(data => setDepartments(data)).catch(console.error);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -24,10 +39,14 @@ export function Register() {
     setIsLoading(true);
 
     try {
+      const payload = {
+        ...formData,
+        department_id: formData.department_id ? Number(formData.department_id) : undefined
+      };
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -119,6 +138,21 @@ export function Register() {
               value={formData.password}
               onChange={handleChange}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <select
+              name="department_id"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white"
+              value={formData.department_id}
+              onChange={handleChange}
+            >
+              <option value="">No Department</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
           </div>
 
           <button

@@ -27,8 +27,8 @@ export function Login() {
 
       login(data.token, data.user);
       
-      if (data.user.role === 'Developer') {
-        navigate('/developer');
+      if (data.user.role === 'Developer' || data.user.role === 'Admin') {
+        navigate('/admin');
       } else {
         navigate('/');
       }

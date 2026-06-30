@@ -1,5 +1,10 @@
 export type ShiftType = 'free' | '8h' | '12h-m' | '12h-e' | 'off' | 'custom' | 'holiday' | 'on-leave';
 
+export interface Department {
+  id: number;
+  name: string;
+}
+
 export interface ShiftDefinition {
   type: ShiftType;
   label: string;

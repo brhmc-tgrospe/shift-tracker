@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcrypt';
 
@@ -13,6 +14,13 @@ export const initDB = async () => {
 
   try {
     await sql`
+      CREATE TABLE IF NOT EXISTS departments (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL
+      );
+    `;
+
+    await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
@@ -20,9 +28,17 @@ export const initDB = async () => {
         password TEXT NOT NULL,
         "firstName" VARCHAR(255) NOT NULL,
         "lastName" VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'User'
+        role VARCHAR(50) DEFAULT 'User',
+        department_id INTEGER,
+        FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
       );
     `;
+
+    try {
+      await sql`ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
 
     await sql`
       CREATE TABLE IF NOT EXISTS shifts (
@@ -36,6 +52,24 @@ export const initDB = async () => {
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
     `;
+
+    // Seed departments
+    const defaultDepartments = [
+      'IT Regular',
+      'Audio/Visual and Stock Management',
+      'Technical Support',
+      'Network Management',
+      'HOMIS Support',
+      'System Development'
+    ];
+
+    for (const dept of defaultDepartments) {
+      await sql`
+        INSERT INTO departments (name)
+        VALUES (${dept})
+        ON CONFLICT (name) DO NOTHING
+      `;
+    }
 
     // Seed function
     const sysdev = await sql`SELECT id FROM users WHERE username = 'sysdev'`;

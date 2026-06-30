@@ -38,7 +38,7 @@ export function ShiftTracker() {
         const devUser = await res.json();
         localStorage.removeItem('devToken');
         login(devToken, devUser);
-        navigate('/developer');
+        navigate('/admin');
       } else {
         localStorage.removeItem('devToken');
         logout();

@@ -7,6 +7,8 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  department_id?: number;
+  department_name?: string;
 }
 
 interface AuthContextType {
