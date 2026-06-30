@@ -1,0 +1,6 @@
+{
+  "name": "Shift Tracker",
+  "description": "A multi-year calendar web application for tracking shifts and working hours.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
