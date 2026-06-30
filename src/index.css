@@ -1,3 +1,15 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
+
+@media print {
+  @page {
+    size: 8.5in 13in landscape;
+    margin: 0.25in;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

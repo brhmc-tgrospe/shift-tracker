@@ -1,4 +1,4 @@
-export type ShiftType = 'free' | '8h' | '12h-m' | '12h-e' | 'off' | 'custom' | 'holiday' | 'on-leave';
+export type ShiftType = 'free' | '8h' | '12h-m' | '12h-e' | 'off' | 'holiday' | 'on-leave';
 
 export interface Department {
   id: number;
@@ -20,7 +20,6 @@ export const SHIFTS: Record<ShiftType, ShiftDefinition> = {
   'off': { type: 'off', label: 'Day Off', colorClass: 'bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-100 border-rose-200 dark:border-rose-800', defaultHours: 0 },
   'holiday': { type: 'holiday', label: 'Holiday', colorClass: 'bg-orange-500 dark:bg-orange-600 hover:bg-orange-600 dark:hover:bg-orange-700 text-white border-orange-600 dark:border-orange-700', defaultHours: 0 },
   'on-leave': { type: 'on-leave', label: 'On-Leave', colorClass: 'bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-600 dark:border-blue-700', defaultHours: 8 },
-  'custom': { type: 'custom', label: 'Custom Hours', colorClass: 'bg-purple-100 dark:bg-purple-900/40 hover:bg-purple-200 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800', defaultHours: 0 },
 };
 
 export interface DayData {

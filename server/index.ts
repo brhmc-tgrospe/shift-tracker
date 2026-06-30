@@ -154,6 +154,10 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
       return res.status(404).json({ error: 'User not found' });
     }
 
+    if (user.role === 'Admin') {
+      return res.status(403).json({ error: 'Cannot impersonate an Admin' });
+    }
+
     const token = jwt.sign({ 
       id: user.id, 
       username: user.username, 

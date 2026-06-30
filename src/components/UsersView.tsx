@@ -11,7 +11,7 @@ export function UsersView() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState('');
   const [editingUser, setEditingUser] = useState<Partial<User> & { password?: string } | null>(null);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -93,9 +93,9 @@ export function UsersView() {
     try {
       const res = await fetch('/api/auth/impersonate', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ userId: targetUserId })
       });
@@ -118,7 +118,7 @@ export function UsersView() {
 
   const handleSave = async () => {
     if (!editingUser) return;
-    
+
     const isNew = !editingUser.id;
     const url = isNew ? '/api/users' : `/api/users/${editingUser.id}`;
     const method = isNew ? 'POST' : 'PUT';
@@ -126,18 +126,18 @@ export function UsersView() {
     try {
       const res = await fetch(url, {
         method,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(editingUser)
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error);
       }
-      
+
       setEditingUser(null);
       fetchUsers();
     } catch (err: any) {
@@ -173,20 +173,20 @@ export function UsersView() {
   };
 
   const canImpersonate = (targetUser: User) => {
-    if (user?.role === 'Developer') return targetUser.role !== 'Developer';
+    if (user?.role === 'Developer') return targetUser.role !== 'Developer' && targetUser.role !== 'Admin';
     return false;
   };
 
   const filteredUsers = users.filter(u => {
     const query = searchQuery.toLowerCase();
-    const matchesSearch = 
-      u.username.toLowerCase().includes(query) || 
-      u.firstName.toLowerCase().includes(query) || 
+    const matchesSearch =
+      u.username.toLowerCase().includes(query) ||
+      u.firstName.toLowerCase().includes(query) ||
       u.lastName.toLowerCase().includes(query) ||
       (u.department_name && u.department_name.toLowerCase().includes(query));
-      
+
     const matchesRole = roleFilter === 'All' || u.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -213,7 +213,7 @@ export function UsersView() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
+
           <select
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white"
             value={roleFilter}
@@ -249,8 +249,8 @@ export function UsersView() {
             <thead className="bg-gray-50 dark:bg-gray-800/50">
               <tr>
                 <th className="px-6 py-3 text-left w-12">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     checked={filteredUsers.filter(u => canModify(u)).length > 0 && selectedIds.size === filteredUsers.filter(u => canModify(u)).length}
                     onChange={toggleSelectAll}
@@ -273,12 +273,12 @@ export function UsersView() {
                 filteredUsers.map(u => (
                   <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
                         checked={selectedIds.has(u.id)}
                         onChange={() => toggleSelectUser(u.id)}
-                        disabled={u.id === user?.id || !canModify(u)} 
+                        disabled={u.id === user?.id || !canModify(u)}
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -296,10 +296,9 @@ export function UsersView() {
                       {u.department_name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        u.role === 'Developer' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' : 
-                        u.role === 'Admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}`}>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role === 'Developer' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' :
+                          u.role === 'Admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}`}>
                         {u.role}
                       </span>
                     </td>
@@ -309,7 +308,7 @@ export function UsersView() {
                           <button onClick={() => setEditingUser(u)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4 transition-colors">
                             <Edit2 className="w-4 h-4 inline" /> <span className="sr-only">Edit</span>
                           </button>
-                          
+
                           {u.id !== user?.id && (
                             <button onClick={() => handleDelete(u.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors mr-4">
                               <Trash2 className="w-4 h-4 inline" /> <span className="sr-only">Delete</span>
@@ -317,9 +316,9 @@ export function UsersView() {
                           )}
                         </>
                       )}
-                      
+
                       {canImpersonate(u) && (
-                        <button onClick={() => handleImpersonate(u.id)} className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 transition-colors" title="Impersonate User">
+                        <button onClick={() => handleImpersonate(u.id)} className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 transition-colors" title="View">
                           <VenetianMask className="w-4 h-4 inline" /> <span className="sr-only">Impersonate</span>
                         </button>
                       )}
@@ -337,7 +336,7 @@ export function UsersView() {
         <div className="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/80 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">{editingUser.id ? 'Edit User' : 'New User'}</h3>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -346,7 +345,7 @@ export function UsersView() {
                     type="text"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                     value={editingUser.firstName}
-                    onChange={e => setEditingUser({...editingUser, firstName: e.target.value})}
+                    onChange={e => setEditingUser({ ...editingUser, firstName: e.target.value })}
                   />
                 </div>
                 <div>
@@ -355,7 +354,7 @@ export function UsersView() {
                     type="text"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                     value={editingUser.lastName}
-                    onChange={e => setEditingUser({...editingUser, lastName: e.target.value})}
+                    onChange={e => setEditingUser({ ...editingUser, lastName: e.target.value })}
                   />
                 </div>
               </div>
@@ -366,7 +365,7 @@ export function UsersView() {
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                   value={editingUser.username}
-                  onChange={e => setEditingUser({...editingUser, username: e.target.value})}
+                  onChange={e => setEditingUser({ ...editingUser, username: e.target.value })}
                 />
               </div>
 
@@ -376,7 +375,7 @@ export function UsersView() {
                   type="email"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                   value={editingUser.email}
-                  onChange={e => setEditingUser({...editingUser, email: e.target.value})}
+                  onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
                 />
               </div>
 
@@ -388,7 +387,7 @@ export function UsersView() {
                   type="password"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                   value={editingUser.password || ''}
-                  onChange={e => setEditingUser({...editingUser, password: e.target.value})}
+                  onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
                 />
               </div>
 
@@ -397,7 +396,7 @@ export function UsersView() {
                 <select
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                   value={editingUser.department_id || ''}
-                  onChange={e => setEditingUser({...editingUser, department_id: e.target.value ? Number(e.target.value) : undefined})}
+                  onChange={e => setEditingUser({ ...editingUser, department_id: e.target.value ? Number(e.target.value) : undefined })}
                 >
                   <option value="">No Department</option>
                   {departments.map(d => (
@@ -411,8 +410,8 @@ export function UsersView() {
                 <select
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:text-white transition-colors"
                   value={editingUser.role}
-                  onChange={e => setEditingUser({...editingUser, role: e.target.value})}
-                  disabled={user?.role === 'Admin'} 
+                  onChange={e => setEditingUser({ ...editingUser, role: e.target.value })}
+                  disabled={user?.role === 'Admin'}
                 >
                   <option value="User">User</option>
                   {user?.role === 'Developer' && (

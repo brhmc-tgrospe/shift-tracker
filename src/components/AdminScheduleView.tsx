@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format, addMonths, subMonths, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS, ShiftType } from '../types';
 
@@ -161,7 +161,7 @@ export function AdminScheduleView() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full max-h-screen">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Schedule</h2>
         
         <div className="flex items-center gap-4">
@@ -184,9 +184,17 @@ export function AdminScheduleView() {
           </div>
 
           <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 print:hidden"
+          >
+            <Printer className="w-4 h-4" />
+            Print Schedule
+          </button>
+
+          <button
             onClick={handleSave}
             disabled={Object.keys(pendingChanges).length === 0 || isSaving}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors print:hidden ${
               Object.keys(pendingChanges).length > 0 && !isSaving
                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
                 : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
@@ -198,7 +206,7 @@ export function AdminScheduleView() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="mb-4 flex flex-wrap gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 print:hidden">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 mr-2">
           <Paintbrush className="w-4 h-4" /> Paint Mode:
         </span>
@@ -225,24 +233,30 @@ export function AdminScheduleView() {
         ))}
       </div>
 
-      <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col relative select-none">
+      <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col relative select-none print:border-none print:shadow-none print:overflow-visible">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10 print:hidden">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
           </div>
         )}
+
+        <div className="hidden print:block text-center mb-6">
+          <h1 className="text-xl font-bold uppercase">
+            IHOMP-IT SCHEDULE {format(currentDate, 'MMMM yyyy')}
+          </h1>
+        </div>
         
-        <div className="overflow-auto max-h-full">
+        <div className="overflow-auto max-h-full print:overflow-visible print:max-h-none">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-20 shadow-sm">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px]">
+                <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs">
                   Employee
                 </th>
                 {days.map(day => (
-                  <th key={day.toISOString()} className="px-2 py-2 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px]">
-                    <div className="text-xs uppercase">{format(day, 'EEE')}</div>
-                    <div className={`text-sm ${format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? 'text-red-500' : ''}`}>
+                  <th key={day.toISOString()} className="px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px]">
+                    <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
+                    <div className={`text-sm print:text-xs ${format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? 'text-red-500' : ''}`}>
                       {format(day, 'd')}
                     </div>
                   </th>
@@ -259,8 +273,8 @@ export function AdminScheduleView() {
                   </tr>
                   {deptUsers.map(u => (
                     <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
-                      <td className="px-4 py-2 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">{u.firstName} {u.lastName}</div>
+                      <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
+                        <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
                       </td>
                       {days.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
@@ -278,19 +292,24 @@ export function AdminScheduleView() {
                           }
                         }
 
+                        const dayOfWeek = format(day, 'EEE');
+                        if (cellContent === '-' && (dayOfWeek === 'Sat' || dayOfWeek === 'Sun')) {
+                          cellContent = dayOfWeek.toUpperCase();
+                        }
+
                         const isPending = !!pendingChanges[key];
 
                         return (
                           <td 
                             key={dateStr} 
-                            className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 cursor-pointer transition-colors ${
+                            className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 cursor-pointer transition-colors ${
                               isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
                             }`}
                             onMouseDown={() => handleCellMouseDown(u.id, dateStr)}
                             onMouseEnter={() => handleCellMouseEnter(u.id, dateStr)}
                             onClick={() => handleCellClick(u.id, dateStr)}
                           >
-                            <div className={`w-full h-8 flex items-center justify-center rounded text-xs font-semibold ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400'}`}>
+                            <div className={`w-full h-8 print:h-5 flex items-center justify-center rounded text-xs print:text-[9px] font-semibold ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 print:text-gray-600'}`}>
                               {cellContent}
                             </div>
                           </td>
@@ -302,6 +321,33 @@ export function AdminScheduleView() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="hidden print:block mt-8 text-sm">
+        <div className="font-bold mb-2">LEGEND:</div>
+        <div className="flex flex-wrap gap-4 mb-12">
+          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free').map(st => (
+            <div key={st.type} className="flex items-center gap-2">
+              <div className={`w-8 h-6 border flex items-center justify-center text-xs font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
+                {st.type}
+              </div>
+              <span>- {st.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-between items-end mt-16">
+          <div>
+            <div className="mb-8">Prepared by:</div>
+            <div className="font-bold border-b border-black pb-1 mb-1 inline-block min-w-[250px]">VLADIMIR M . PIANDO, MIS</div>
+            <div>CMT III, Head, IHOMP-IT Office</div>
+          </div>
+          <div>
+            <div className="mb-8">Approved by:</div>
+            <div className="font-bold border-b border-black pb-1 mb-1 inline-block min-w-[350px]">ERIC RAYMOND N. RABORAR, MD, MPA - HEDM, MMHoA, FPS MS</div>
+            <div>Medical Center Chief II</div>
+          </div>
         </div>
       </div>
 
