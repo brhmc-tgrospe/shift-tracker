@@ -10,8 +10,14 @@ app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production';
 
-// Initialize DB on cold start
-initDB();
+let dbInitialized = false;
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initDB();
+    dbInitialized = true;
+  }
+  next();
+});
 
 // Auth Middleware
 const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
