@@ -49,7 +49,7 @@ export function Register() {
             <Briefcase className="w-7 h-7" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Create an Account</h2>
-          <p className="text-gray-500 text-sm mt-1">Join Shift Tracker today</p>
+          <p className="text-gray-500 text-sm mt-1">Schedule Shift Tracker</p>
         </div>
 
         {error && (
