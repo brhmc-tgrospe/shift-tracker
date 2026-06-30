@@ -178,6 +178,10 @@ export function ShiftTracker() {
                 onNextYear={handleNextYear}
                 dayDataMap={dayDataMap}
                 onUpdateDay={handleUpdateDay}
+                readOnly={user?.role === 'User' && (
+                  currentYear > new Date().getFullYear() ||
+                  (currentYear === new Date().getFullYear() && currentMonth > new Date().getMonth())
+                )}
               />
             </div>
           </div>

@@ -79,12 +79,7 @@ export const initDB = async () => {
       console.log('Seeded Developer Account');
     }
 
-    const testacct = await sql`SELECT id FROM users WHERE username = 'testacct'`;
-    if (testacct.length === 0) {
-      const hash = await bcrypt.hash('123456', 10);
-      await sql`INSERT INTO users (username, email, password, "firstName", "lastName", role) VALUES ('testacct', 'testacct@test.com', ${hash}, 'Test', 'Account', 'User')`;
-      console.log('Seeded Test Account');
-    }
+
   } catch (error) {
     console.error("Error initializing database:", error);
   }

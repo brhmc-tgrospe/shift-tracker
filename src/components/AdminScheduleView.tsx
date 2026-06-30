@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format, addMonths, subMonths, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS, ShiftType } from '../types';
 
@@ -13,6 +13,7 @@ export function AdminScheduleView() {
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Record<string, any>>({});
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
+  const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -140,8 +141,12 @@ export function AdminScheduleView() {
   const monthStart = startOfMonth(currentDate);
   const days = Array.from({ length: daysInMonth }, (_, i) => addDays(monthStart, i));
 
+  // Get unique departments for the filter
+  const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort();
+
   // Group users by department
-  const groupedUsers = users.reduce((acc, user) => {
+  const filteredUsers = users.filter(u => departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter);
+  const groupedUsers = filteredUsers.reduce((acc, user) => {
     const dept = user.department_name || 'No Department';
     if (!acc[dept]) acc[dept] = [];
     acc[dept].push(user);
@@ -157,6 +162,27 @@ export function AdminScheduleView() {
       return;
     }
     setModalOpen({ userId, dateStr });
+  };
+
+  const handleDuplicateLastMonth = async (userId: number) => {
+    const sourceMonth = format(subMonths(currentDate, 1), 'yyyy-MM');
+    const targetMonth = format(currentDate, 'yyyy-MM');
+    
+    if (!window.confirm(`Copy schedule from ${sourceMonth} for this user?`)) return;
+
+    try {
+      const res = await fetch('/api/shifts/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, sourceMonth, targetMonth })
+      });
+      if (!res.ok) throw new Error('Failed to copy shifts');
+      
+      // Refetch to get new shifts
+      fetchUsersAndShifts();
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   return (
@@ -188,7 +214,7 @@ export function AdminScheduleView() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 print:hidden"
           >
             <Printer className="w-4 h-4" />
-            Print Schedule
+            Print
           </button>
 
           <button
@@ -231,6 +257,17 @@ export function AdminScheduleView() {
             {st.label}
           </button>
         ))}
+        
+        <div className="ml-auto flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department:</label>
+          <select 
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          >
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col relative select-none print:border-none print:shadow-none print:overflow-visible">
@@ -253,70 +290,99 @@ export function AdminScheduleView() {
                 <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs">
                   Employee
                 </th>
-                {days.map(day => (
-                  <th key={day.toISOString()} className="px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px]">
-                    <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
-                    <div className={`text-sm print:text-xs ${format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? 'text-red-500' : ''}`}>
-                      {format(day, 'd')}
-                    </div>
-                  </th>
-                ))}
+                {days.map(day => {
+                  const isWeekend = format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat';
+                  return (
+                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90' : ''}`}>
+                      <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
+                      <div className={`text-sm print:text-xs ${isWeekend ? 'text-red-500' : ''}`}>
+                        {format(day, 'd')}
+                      </div>
+                    </th>
+                  );
+                })}
+                <th className="px-4 py-2 print:px-1 text-center font-bold text-gray-700 dark:text-gray-300 border-b border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky right-0 z-30 min-w-[80px]">
+                  Total Hrs
+                </th>
               </tr>
             </thead>
             <tbody>
               {(Object.entries(groupedUsers) as [string, User[]][]).map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
                   <tr className="bg-gray-100 dark:bg-gray-900/50">
-                    <td colSpan={days.length + 1} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700">
+                    <td colSpan={days.length + 2} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700">
                       {dept}
                     </td>
                   </tr>
-                  {deptUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
-                      <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
-                        <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
-                      </td>
-                      {days.map(day => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const key = `${u.id}-${dateStr}`;
-                        const activeData = pendingChanges[key] || shifts[key];
-                        
-                        let cellContent = '-';
-                        let cellColor = '';
-                        
-                        if (activeData) {
-                          const shiftType = AVAILABLE_SHIFTS.find(s => s.type === activeData.shift);
-                          if (shiftType && shiftType.type !== 'free') {
-                            cellContent = shiftType.type;
-                            cellColor = shiftType.colorClass;
+                  {deptUsers.map(u => {
+                    let totalHours = 0;
+                    
+                    return (
+                      <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
+                        <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
+                            <button 
+                              onClick={() => handleDuplicateLastMonth(u.id)}
+                              title="Copy schedule from previous month"
+                              className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 print:hidden"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        {days.map(day => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const key = `${u.id}-${dateStr}`;
+                          const activeData = pendingChanges[key] || shifts[key];
+                          
+                          let cellContent = '-';
+                          let cellColor = '';
+                          
+                          if (activeData) {
+                            const shiftType = AVAILABLE_SHIFTS.find(s => s.type === activeData.shift) || SHIFTS['on-leave']; // Fallback for on-leave
+                            if (shiftType && shiftType.type !== 'free') {
+                              cellContent = shiftType.type;
+                              cellColor = shiftType.colorClass;
+                              totalHours += (activeData.hours || shiftType.defaultHours);
+                            }
                           }
-                        }
 
-                        const dayOfWeek = format(day, 'EEE');
-                        if (cellContent === '-' && (dayOfWeek === 'Sat' || dayOfWeek === 'Sun')) {
-                          cellContent = dayOfWeek.toUpperCase();
-                        }
+                          const dayOfWeek = format(day, 'EEE');
+                          const isWeekend = dayOfWeek === 'Sat' || dayOfWeek === 'Sun';
+                          if (cellContent === '-' && isWeekend) {
+                            cellContent = dayOfWeek.toUpperCase();
+                          }
 
-                        const isPending = !!pendingChanges[key];
+                          const isPending = !!pendingChanges[key];
 
-                        return (
-                          <td 
-                            key={dateStr} 
-                            className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 cursor-pointer transition-colors ${
-                              isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
-                            }`}
-                            onMouseDown={() => handleCellMouseDown(u.id, dateStr)}
-                            onMouseEnter={() => handleCellMouseEnter(u.id, dateStr)}
-                            onClick={() => handleCellClick(u.id, dateStr)}
-                          >
-                            <div className={`w-full h-8 print:h-5 flex items-center justify-center rounded text-xs print:text-[9px] font-semibold ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 print:text-gray-600'}`}>
-                              {cellContent}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                          return (
+                            <td 
+                              key={dateStr} 
+                              className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 cursor-pointer transition-colors ${
+                                isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
+                              } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
+                              onMouseDown={() => handleCellMouseDown(u.id, dateStr)}
+                              onMouseEnter={() => handleCellMouseEnter(u.id, dateStr)}
+                              onClick={() => handleCellClick(u.id, dateStr)}
+                            >
+                              <div className={`w-full h-8 print:h-5 flex items-center justify-center rounded text-xs print:text-[9px] font-semibold ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 print:text-gray-600'}`}>
+                                {cellContent}
+                              </div>
+                            </td>
+                          );
+                        })}
+                        <td className={`px-4 py-2 border-b border-l border-gray-200 dark:border-gray-700 text-center font-bold sticky right-0 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 ${
+                          totalHours === 176 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                        }`}>
+                          <div className="flex items-center justify-center gap-1">
+                            {totalHours}h
+                            {totalHours !== 176 && <AlertCircle className="w-4 h-4 print:hidden" title="Must be exactly 176 hours" />}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </React.Fragment>
               ))}
             </tbody>

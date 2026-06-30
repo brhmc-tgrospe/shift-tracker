@@ -14,7 +14,7 @@ export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalPro
 
   // When shift type changes, automatically save
   const handleShiftChange = (newShift: ShiftType) => {
-    const newHours = newShift !== 'custom' ? SHIFTS[newShift].defaultHours : hours;
+    const newHours = SHIFTS[newShift].defaultHours;
     onSave({
       date,
       shift: newShift,
@@ -39,7 +39,6 @@ export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalPro
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Shift Type</label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.entries(SHIFTS) as [ShiftType, typeof SHIFTS[ShiftType]][])
-                .filter(([key]) => key !== 'custom')
                 .map(([key, def]) => (
                 <button
                   key={key}

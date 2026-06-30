@@ -15,6 +15,7 @@ interface CalendarProps {
   onNextYear: () => void;
   dayDataMap: Record<string, DayData>;
   onUpdateDay: (data: DayData) => void;
+  readOnly?: boolean;
 }
 
 export function Calendar({
@@ -27,7 +28,8 @@ export function Calendar({
   onPrevYear,
   onNextYear,
   dayDataMap,
-  onUpdateDay
+  onUpdateDay,
+  readOnly = false
 }: CalendarProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -110,8 +112,8 @@ export function Calendar({
             return (
               <button
                 key={day}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 hover:scale-[1.02] active:scale-95 ${shiftDef.colorClass}`}
+                onClick={() => { if (!readOnly) setSelectedDate(dateStr); }}
+                className={`relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${!readOnly ? 'hover:scale-[1.02] active:scale-95' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
               >
                 <span className="text-base font-medium">{day}</span>
                 {displayHours > 0 && (

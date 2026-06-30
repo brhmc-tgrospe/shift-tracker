@@ -348,6 +348,19 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  if (user.role === 'User') {
+    const shiftMonthStr = date.substring(0, 7); // 'YYYY-MM'
+    
+    // We get current month in local time using a hack or just UTC
+    // A simpler way: '2026-06'
+    const now = new Date();
+    // Assuming local timezone logic is fine, or simple UTC is fine
+    const todayMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    if (shiftMonthStr > todayMonthStr) {
+      return res.status(403).json({ error: 'Users cannot edit shifts for upcoming months' });
+    }
+  }
+
   try {
     if (shift === 'free' && hours === 0) {
       await sql`DELETE FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
@@ -390,6 +403,97 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
       }
     }
     res.json({ message: 'Bulk shifts updated successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Dashboard Metrics Endpoint
+app.get('/api/dashboard/metrics', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const today = (req.query.date as string) || new Date().toISOString().split('T')[0];
+  try {
+    const rows = await sql`
+      SELECT 
+        u.id, u.username, u."firstName", u."lastName", u.department_id, 
+        d.name as department_name,
+        s.shift, s.hours, s.notes
+      FROM users u
+      LEFT JOIN shifts s ON u.id = s.user_id AND s.date = ${today}
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.role NOT IN ('Admin', 'Developer')
+    `;
+    
+    const working: any[] = [];
+    const dayOff: any[] = [];
+    const onLeave: any[] = [];
+    
+    for (const row of rows) {
+      if (!row.shift || row.shift === 'free') {
+        dayOff.push(row);
+      } else if (row.shift === 'on-leave') {
+        onLeave.push(row);
+      } else {
+        working.push(row);
+      }
+    }
+    
+    res.json({
+      working: { count: working.length, users: working },
+      dayOff: { count: dayOff.length, users: dayOff },
+      onLeave: { count: onLeave.length, users: onLeave }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Duplicate Shifts Endpoint
+app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { userId, sourceMonth, targetMonth } = req.body;
+  if (!userId || !sourceMonth || !targetMonth) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const [targetYearStr, targetMonthStr] = targetMonth.split('-');
+    const targetYear = parseInt(targetYearStr, 10);
+    const targetMonthNum = parseInt(targetMonthStr, 10);
+    const daysInTargetMonth = new Date(targetYear, targetMonthNum, 0).getDate();
+
+    const sourceShifts = await sql`
+      SELECT date, shift, hours, notes 
+      FROM shifts 
+      WHERE user_id = ${userId} AND date LIKE ${sourceMonth + '%'}
+    `;
+
+    const newShifts = [];
+    for (const shift of sourceShifts) {
+      const dayStr = shift.date.split('-')[2];
+      const dayNum = parseInt(dayStr, 10);
+      if (dayNum <= daysInTargetMonth) {
+        const targetDate = `${targetMonth}-${dayStr}`;
+        newShifts.push({ ...shift, date: targetDate });
+      }
+    }
+
+    if (newShifts.length > 0) {
+      for (const s of newShifts) {
+        if (s.shift === 'free' && s.hours === 0) {
+          await sql`DELETE FROM shifts WHERE user_id = ${userId} AND date = ${s.date}`;
+        } else {
+          await sql`
+            INSERT INTO shifts (user_id, date, shift, hours, notes)
+            VALUES (${userId}, ${s.date}, ${s.shift}, ${s.hours}, ${s.notes || ''})
+            ON CONFLICT (user_id, date) DO UPDATE SET
+              shift = EXCLUDED.shift,
+              hours = EXCLUDED.hours,
+              notes = EXCLUDED.notes
+          `;
+        }
+      }
+    }
+
+    res.json({ message: 'Shifts duplicated successfully' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

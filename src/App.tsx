@@ -9,6 +9,7 @@ import { UsersView } from './components/UsersView';
 import { DepartmentsView } from './components/DepartmentsView';
 import { AdminScheduleView } from './components/AdminScheduleView';
 import { Profile } from './components/Profile';
+import { AdminDashboard } from './components/AdminDashboard';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
   const { user, isLoading } = useAuth();
@@ -44,7 +45,8 @@ export default function App() {
               </ProtectedRoute>
             } 
           >
-            <Route index element={<Navigate to="users" replace />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<UsersView />} />
             <Route path="departments" element={<DepartmentsView />} />
             <Route path="schedule" element={<AdminScheduleView />} />

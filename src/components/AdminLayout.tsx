@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, Building2, Calendar, Moon, Sun, User as UserIcon, LogOut, Menu, X } from 'lucide-react';
+import { Users, Building2, Calendar, Moon, Sun, User as UserIcon, LogOut, Menu, X, Activity } from 'lucide-react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 
 export function AdminLayout() {
@@ -25,6 +25,7 @@ export function AdminLayout() {
   };
 
   const navItems = [
+    { name: 'Dashboard', path: '/admin/dashboard', icon: Activity },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Departments', path: '/admin/departments', icon: Building2 },
     { name: 'Monthly Schedule', path: '/admin/schedule', icon: Calendar },

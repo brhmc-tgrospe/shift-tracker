@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Search } from 'lucide-react';
 import { Department } from '../types';
 
 export function DepartmentsView() {
@@ -8,6 +8,7 @@ export function DepartmentsView() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState('');
   const [editingDept, setEditingDept] = useState<Partial<Department> | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchDepartments();
@@ -15,12 +16,9 @@ export function DepartmentsView() {
 
   const fetchDepartments = async () => {
     try {
-      const res = await fetch('/api/departments', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('/api/departments', { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to fetch departments');
-      const data = await res.json();
-      setDepartments(data);
+      setDepartments(await res.json());
     } catch (err: any) {
       setError(err.message);
     }
@@ -29,14 +27,8 @@ export function DepartmentsView() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this department?')) return;
     try {
-      const res = await fetch(`/api/departments/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error);
-      }
+      const res = await fetch(`/api/departments/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error((await res.json()).error);
       fetchDepartments();
     } catch (err: any) {
       alert(err.message);
@@ -45,25 +37,17 @@ export function DepartmentsView() {
 
   const handleSave = async () => {
     if (!editingDept || !editingDept.name) return;
-    
     const isNew = !editingDept.id;
     const url = isNew ? '/api/departments' : `/api/departments/${editingDept.id}`;
-    const method = isNew ? 'POST' : 'PUT';
-
+    
     try {
       const res = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(editingDept)
       });
       
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error);
-      }
+      if (!res.ok) throw new Error((await res.json()).error);
       
       setEditingDept(null);
       fetchDepartments();
@@ -71,6 +55,10 @@ export function DepartmentsView() {
       alert(err.message);
     }
   };
+
+  const filteredDepartments = departments.filter(d => 
+    d.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -85,12 +73,27 @@ export function DepartmentsView() {
           <Building2 className="w-5 h-5 text-indigo-500" /> Departments
         </h2>
         
-        <button
-          onClick={() => setEditingDept({ name: '' })}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Department
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-grow sm:flex-grow-0">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search departments..."
+              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white w-full sm:w-64"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={() => setEditingDept({ name: '' })}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" /> Add Dept
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
@@ -100,18 +103,18 @@ export function DepartmentsView() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {departments.length === 0 ? (
+              {filteredDepartments.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     No departments found.
                   </td>
                 </tr>
               ) : (
-                departments.map(d => (
+                filteredDepartments.map(d => (
                   <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {d.id}
@@ -119,7 +122,7 @@ export function DepartmentsView() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {d.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                       <button onClick={() => setEditingDept(d)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4 transition-colors">
                         <Edit2 className="w-4 h-4 inline" /> <span className="sr-only">Edit</span>
                       </button>
@@ -135,7 +138,6 @@ export function DepartmentsView() {
         </div>
       </div>
 
-      {/* Modal for editing/creating department */}
       {editingDept && (
         <div className="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/80 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl">
