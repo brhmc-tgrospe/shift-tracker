@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { getDaysInMonth, getFirstDayOfMonth, formatYYYYMMDD, DAY_NAMES, MONTH_NAMES } from '../utils/date';
 import { DayData, SHIFTS } from '../types';
 import { ShiftModal } from './ShiftModal';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
 
 interface CalendarProps {
   currentYear: number;
@@ -113,13 +113,22 @@ export function Calendar({
               <button
                 key={day}
                 onClick={() => { if (!readOnly) setSelectedDate(dateStr); }}
-                className={`relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${!readOnly ? 'hover:scale-[1.02] active:scale-95' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
+                className={`group relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${!readOnly ? 'hover:scale-[1.02] active:scale-95' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
               >
                 <span className="text-base font-medium">{day}</span>
                 {displayHours > 0 && (
                   <span className="absolute bottom-1 right-1.5 text-[10px] font-bold opacity-70">
                     {displayHours}h
                   </span>
+                )}
+                {data?.notes && (
+                  <>
+                    <MessageSquare className="absolute top-1.5 left-1.5 w-3.5 h-3.5 opacity-60" />
+                    <div className="absolute z-50 invisible group-hover:visible opacity-0 group-hover:opacity-100 bottom-[calc(100%+8px)] w-48 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-xs text-left rounded-lg p-2 shadow-xl transition-all duration-200 pointer-events-none break-words">
+                      {data.notes}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100"></div>
+                    </div>
+                  </>
                 )}
               </button>
             );

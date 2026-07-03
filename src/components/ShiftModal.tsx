@@ -11,14 +11,29 @@ interface ShiftModalProps {
 export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalProps) {
   const [shift, setShift] = useState<ShiftType>(initialData?.shift || 'free');
   const [hours, setHours] = useState<number | ''>(initialData?.hours ?? 0);
+  const [notes, setNotes] = useState<string>(initialData?.notes || '');
 
-  // When shift type changes, automatically save
   const handleShiftChange = (newShift: ShiftType) => {
     const newHours = SHIFTS[newShift].defaultHours;
+    setShift(newShift);
+    setHours(newHours);
+    
+    if (newShift === 'free') {
+      onSave({
+        date,
+        shift: newShift,
+        hours: typeof newHours === 'number' ? newHours : 0,
+        notes: ''
+      });
+    }
+  };
+
+  const handleSave = () => {
     onSave({
       date,
-      shift: newShift,
-      hours: typeof newHours === 'number' ? newHours : 0,
+      shift,
+      hours: typeof hours === 'number' ? hours : 0,
+      notes: notes.trim()
     });
   };
 
@@ -54,7 +69,37 @@ export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalPro
               ))}
             </div>
           </div>
+          
+          {shift !== 'free' && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add a note..."
+                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors"
+                rows={3}
+              />
+            </div>
+          )}
         </div>
+
+        {shift !== 'free' && (
+          <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-end gap-2 animate-in fade-in duration-200">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -26,4 +26,5 @@ export interface DayData {
   date: string; // YYYY-MM-DD
   shift: ShiftType;
   hours: number;
+  notes?: string;
 }

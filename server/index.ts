@@ -52,15 +52,15 @@ const requireAdminOrDeveloper = (req: express.Request, res: express.Response, ne
 
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password, firstName, lastName, department_id } = req.body;
-  if (!username || !email || !password || !firstName || !lastName) {
-    return res.status(400).json({ error: 'All fields are required' });
+  if (!username || !password || !firstName || !lastName) {
+    return res.status(400).json({ error: 'Username, password, first name, and last name are required' });
   }
 
   try {
     const hash = await bcrypt.hash(password, 10);
     const rows = await sql`
       INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
-      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, 'User', ${department_id || null})
+      VALUES (${username}, ${email || null}, ${hash}, ${firstName}, ${lastName}, 'User', ${department_id || null})
       RETURNING id
     `;
     
@@ -124,9 +124,9 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET email = ${email}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
     } else {
-      await sql`UPDATE users SET email = ${email}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
     }
     
     // Fetch updated user
@@ -201,7 +201,7 @@ app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, r
     const hash = await bcrypt.hash(password, 10);
     const rows = await sql`
       INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
-      VALUES (${username}, ${email}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'}, ${department_id || null})
+      VALUES (${username}, ${email || null}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'}, ${department_id || null})
       RETURNING id
     `;
     res.status(201).json({ id: rows[0].id, message: 'User created' });
@@ -229,9 +229,9 @@ app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET username = ${username}, email = ${email}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
     } else {
-      await sql`UPDATE users SET username = ${username}, email = ${email}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
     }
     res.json({ message: 'User updated' });
   } catch (error: any) {

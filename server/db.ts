@@ -24,7 +24,7 @@ export const initDB = async () => {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE,
         password TEXT NOT NULL,
         "firstName" VARCHAR(255) NOT NULL,
         "lastName" VARCHAR(255) NOT NULL,
@@ -38,6 +38,12 @@ export const initDB = async () => {
       await sql`ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL`;
     } catch (e: any) {
       // Ignore if column already exists
+    }
+
+    try {
+      await sql`ALTER TABLE users ALTER COLUMN email DROP NOT NULL`;
+    } catch (e: any) {
+      // Ignore if it fails or already dropped
     }
 
     await sql`
