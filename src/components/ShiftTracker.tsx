@@ -3,9 +3,10 @@ import { Calendar } from './Calendar';
 import { Legend } from './Legend';
 import { Metrics } from './Metrics';
 import { DayData } from '../types';
-import { Briefcase, LogOut, User, Moon, Sun, ArrowLeft } from 'lucide-react';
+import { Briefcase, LogOut, User, Moon, Sun, ArrowLeft, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { UserScheduleOverviewModal } from './UserScheduleOverviewModal';
 
 export function ShiftTracker() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -13,6 +14,7 @@ export function ShiftTracker() {
   const [dayDataMap, setDayDataMap] = useState<Record<string, DayData>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
   const { user, token, logout, login } = useAuth();
   const navigate = useNavigate();
 
@@ -193,10 +195,22 @@ export function ShiftTracker() {
               dayDataMap={dayDataMap}
             />
             <Legend />
+            
+            <button
+              onClick={() => setIsOverviewModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition-colors font-medium"
+            >
+              <Users className="w-5 h-5" />
+              View All Schedules
+            </button>
           </div>
 
         </div>
       </main>
+
+      {isOverviewModalOpen && (
+        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} />
+      )}
     </div>
   );
 }

@@ -174,6 +174,21 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
 
 // User Management (Developer and Admin)
 
+// Get all users (public, read-only view)
+app.get('/api/public/users', authenticateToken, async (req, res) => {
+  try {
+    const rows = await sql`
+      SELECT u.id, u.username, u."firstName", u."lastName", u.department_id, d.name as department_name
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.role NOT IN ('Admin', 'Developer')
+    `;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all users
 app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
@@ -319,6 +334,22 @@ app.get('/api/shifts', authenticateToken, async (req, res) => {
       dayDataMap[shift.date] = shift;
     }
     res.json(dayDataMap);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all shifts (public, read-only view)
+app.get('/api/public/shifts', authenticateToken, async (req, res) => {
+  const { month } = req.query; // YYYY-MM
+  try {
+    const rows = await sql`
+      SELECT s.user_id, s.date, s.shift, s.hours, s.notes 
+      FROM shifts s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.date LIKE ${month + '%'} AND u.role NOT IN ('Admin', 'Developer')
+    `;
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
