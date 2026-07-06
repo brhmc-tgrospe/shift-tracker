@@ -187,7 +187,7 @@ export function ScheduleGrid({
       <div className={`mt-8 text-sm ${hideSignatories ? 'block' : 'hidden print:block'}`}>
         <div className="font-bold mb-2">LEGEND:</div>
         <div className="flex flex-wrap gap-4 mb-12">
-          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free').map(st => (
+          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A').map(st => (
             <div key={st.type} className="flex items-center gap-2">
               <div className={`w-8 h-6 border flex items-center justify-center text-xs font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
                 {st.type}

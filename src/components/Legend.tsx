@@ -7,6 +7,7 @@ export function Legend() {
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">Shift Legend</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {Object.values(SHIFTS)
+          .filter(shift => shift.type !== 'N/A')
           .map(shift => (
           <div key={shift.type} className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${shift.colorClass}`}>
