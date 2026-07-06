@@ -4,7 +4,7 @@ import { Copy, AlertCircle, Loader2 } from 'lucide-react';
 import { User } from '../context/AuthContext';
 import { SHIFTS } from '../types';
 
-const AVAILABLE_SHIFTS = Object.values(SHIFTS).filter(s => s.type !== 'on-leave');
+const AVAILABLE_SHIFTS = Object.values(SHIFTS);
 
 interface ScheduleGridProps {
   currentDate: Date;
@@ -59,7 +59,7 @@ export function ScheduleGrid({
             IHOMP-IT SCHEDULE {format(currentDate, 'MMMM yyyy')}
           </h1>
         </div>
-        
+
         <div className="overflow-auto max-h-full print:overflow-visible print:max-h-none">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-20 shadow-sm">
@@ -110,14 +110,14 @@ export function ScheduleGrid({
                   </tr>
                   {deptUsers.map(u => {
                     let totalHours = 0;
-                    
+
                     return (
                       <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
                         <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
                           <div className="flex items-center justify-between">
                             <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
                             {!readOnly && onDuplicate && (
-                              <button 
+                              <button
                                 onClick={() => onDuplicate(u.id)}
                                 title="Copy schedule from previous month"
                                 className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 print:hidden"
@@ -131,16 +131,16 @@ export function ScheduleGrid({
                           const dateStr = format(day, 'yyyy-MM-dd');
                           const key = `${u.id}-${dateStr}`;
                           const activeData = pendingChanges[key] || shifts[key];
-                          
+
                           let cellContent = '-';
                           let cellColor = '';
-                          
+
                           if (activeData) {
                             const shiftType = AVAILABLE_SHIFTS.find(s => s.type === activeData.shift) || SHIFTS['on-leave'];
                             if (shiftType && shiftType.type !== 'free') {
                               const isFilteredOut = enableLegendFilter && !activeShiftTypes.has(shiftType.type);
                               cellContent = shiftType.type;
-                              cellColor = isFilteredOut 
+                              cellColor = isFilteredOut
                                 ? 'bg-gray-50/50 dark:bg-gray-800/30 text-gray-300 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 opacity-50'
                                 : shiftType.colorClass;
                               totalHours += (activeData.hours || shiftType.defaultHours);
@@ -156,13 +156,11 @@ export function ScheduleGrid({
                           const isPending = !!pendingChanges[key];
 
                           return (
-                            <td 
-                              key={dateStr} 
-                              className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors ${
-                                !readOnly ? 'cursor-pointer' : ''
-                              } ${
-                                isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
-                              } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
+                            <td
+                              key={dateStr}
+                              className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors ${!readOnly ? 'cursor-pointer' : ''
+                                } ${isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
+                                } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
                               onMouseDown={() => !readOnly && onCellMouseDown?.(u.id, dateStr)}
                               onMouseEnter={() => !readOnly && onCellMouseEnter?.(u.id, dateStr)}
                               onClick={() => !readOnly && onCellClick?.(u.id, dateStr)}
@@ -174,9 +172,8 @@ export function ScheduleGrid({
                           );
                         })}
                         {!hideTotalHours && (
-                          <td className={`px-4 py-2 border-b border-l border-gray-200 dark:border-gray-700 text-center font-bold sticky right-0 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 ${
-                            totalHours === 176 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
-                          }`}>
+                          <td className={`px-4 py-2 border-b border-l border-gray-200 dark:border-gray-700 text-center font-bold sticky right-0 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 ${totalHours === 176 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                            }`}>
                             <div className="flex items-center justify-center gap-1">
                               {totalHours}h
                               {totalHours !== 176 && <AlertCircle className="w-4 h-4 print:hidden" title="Must be exactly 176 hours" />}
@@ -199,8 +196,8 @@ export function ScheduleGrid({
           {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A').map(st => {
             const isActive = activeShiftTypes.has(st.type);
             return (
-              <div 
-                key={st.type} 
+              <div
+                key={st.type}
                 className={`flex items-center gap-2 ${enableLegendFilter ? 'cursor-pointer hover:opacity-80 transition-opacity select-none' : ''} ${!isActive && enableLegendFilter ? 'opacity-40 grayscale' : ''}`}
                 onClick={() => {
                   if (!enableLegendFilter) return;
