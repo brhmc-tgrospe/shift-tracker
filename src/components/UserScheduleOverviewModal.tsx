@@ -49,7 +49,24 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
     }
   };
 
-  const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort();
+  const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort((a, b) => {
+    if (a === 'All') return -1;
+    if (b === 'All') return 1;
+    const order = [
+      'IT Regular',
+      'Audio/Visual and Stock Management',
+      'Technical Support',
+      'Network Management',
+      'HOMIS Support',
+      'System Development'
+    ];
+    const indexA = order.indexOf(a);
+    const indexB = order.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
 
   const filteredUsers = users.filter(u => departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter);
   const groupedUsers = filteredUsers.reduce((acc, user) => {

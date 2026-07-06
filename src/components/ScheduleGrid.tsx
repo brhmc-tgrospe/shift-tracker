@@ -80,7 +80,22 @@ export function ScheduleGrid({
               </tr>
             </thead>
             <tbody>
-              {(Object.entries(groupedUsers) as [string, User[]][]).map(([dept, deptUsers]) => (
+              {(Object.entries(groupedUsers) as [string, User[]][]).sort((a, b) => {
+                const order = [
+                  'IT Regular',
+                  'Audio/Visual and Stock Management',
+                  'Technical Support',
+                  'Network Management',
+                  'HOMIS Support',
+                  'System Development'
+                ];
+                const indexA = order.indexOf(a[0]);
+                const indexB = order.indexOf(b[0]);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return a[0].localeCompare(b[0]);
+              }).map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
                   <tr className="bg-gray-100 dark:bg-gray-900/50">
                     <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700">
