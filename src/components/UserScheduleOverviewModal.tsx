@@ -151,6 +151,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
             hideSignatories={true}
             hideTotalHours={true}
             isLoading={isLoading}
+            enableLegendFilter={true}
           />
         </div>
       </motion.div>

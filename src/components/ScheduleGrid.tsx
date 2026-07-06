@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { Copy, AlertCircle, Loader2 } from 'lucide-react';
 import { User } from '../context/AuthContext';
@@ -19,6 +19,7 @@ interface ScheduleGridProps {
   onCellMouseDown?: (userId: number, dateStr: string) => void;
   onCellMouseEnter?: (userId: number, dateStr: string) => void;
   onDuplicate?: (userId: number) => void;
+  enableLegendFilter?: boolean;
 }
 
 export function ScheduleGrid({
@@ -33,8 +34,13 @@ export function ScheduleGrid({
   onCellClick,
   onCellMouseDown,
   onCellMouseEnter,
-  onDuplicate
+  onDuplicate,
+  enableLegendFilter = false
 }: ScheduleGridProps) {
+  const [activeShiftTypes, setActiveShiftTypes] = useState<Set<string>>(
+    new Set(AVAILABLE_SHIFTS.map(s => s.type))
+  );
+
   const daysInMonth = getDaysInMonth(currentDate);
   const monthStart = startOfMonth(currentDate);
   const days = Array.from({ length: daysInMonth }, (_, i) => addDays(monthStart, i));
@@ -132,8 +138,11 @@ export function ScheduleGrid({
                           if (activeData) {
                             const shiftType = AVAILABLE_SHIFTS.find(s => s.type === activeData.shift) || SHIFTS['on-leave'];
                             if (shiftType && shiftType.type !== 'free') {
+                              const isFilteredOut = enableLegendFilter && !activeShiftTypes.has(shiftType.type);
                               cellContent = shiftType.type;
-                              cellColor = shiftType.colorClass;
+                              cellColor = isFilteredOut 
+                                ? 'bg-gray-50/50 dark:bg-gray-800/30 text-gray-300 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 opacity-50'
+                                : shiftType.colorClass;
                               totalHours += (activeData.hours || shiftType.defaultHours);
                             }
                           }
@@ -187,14 +196,29 @@ export function ScheduleGrid({
       <div className={`mt-8 text-sm ${hideSignatories ? 'block' : 'hidden print:block'}`}>
         <div className="font-bold mb-2">LEGEND:</div>
         <div className="flex flex-wrap gap-4 mb-12">
-          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A').map(st => (
-            <div key={st.type} className="flex items-center gap-2">
-              <div className={`w-8 h-6 border flex items-center justify-center text-xs font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
-                {st.type}
+          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A').map(st => {
+            const isActive = activeShiftTypes.has(st.type);
+            return (
+              <div 
+                key={st.type} 
+                className={`flex items-center gap-2 ${enableLegendFilter ? 'cursor-pointer hover:opacity-80 transition-opacity select-none' : ''} ${!isActive && enableLegendFilter ? 'opacity-40 grayscale' : ''}`}
+                onClick={() => {
+                  if (!enableLegendFilter) return;
+                  setActiveShiftTypes(prev => {
+                    const next = new Set(prev);
+                    if (next.has(st.type)) next.delete(st.type);
+                    else next.add(st.type);
+                    return next;
+                  });
+                }}
+              >
+                <div className={`w-8 h-6 border flex items-center justify-center text-xs font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
+                  {st.type}
+                </div>
+                <span>- {st.label}</span>
               </div>
-              <span>- {st.label}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {!hideSignatories && (
