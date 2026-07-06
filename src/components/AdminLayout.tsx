@@ -17,6 +17,7 @@ export function AdminLayout() {
   const toggleDarkMode = () => {
     const isDark = document.documentElement.classList.toggle('dark');
     setIsDarkMode(isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
   };
 
   const handleLogout = () => {
