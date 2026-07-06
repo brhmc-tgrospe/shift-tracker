@@ -8,6 +8,7 @@ export function Profile() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    username: user?.username || '',
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
@@ -47,6 +48,7 @@ export function Profile() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          username: formData.username,
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
@@ -113,10 +115,19 @@ export function Profile() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
             <input
               type="text"
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-              value={user.username}
+              name="username"
+              disabled={user.username_changed}
+              className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg outline-none transition-colors dark:text-white ${
+                user.username_changed 
+                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 cursor-not-allowed' 
+                  : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800'
+              }`}
+              value={formData.username}
+              onChange={handleChange}
             />
+            {user.username_changed && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">You have already changed your username once.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

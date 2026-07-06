@@ -98,7 +98,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName, username_changed: user.username_changed } });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message, cause: error.cause ? String(error.cause) : undefined });
@@ -108,7 +108,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   const tokenUser = (req as any).user;
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, department_id FROM users WHERE id = ${tokenUser.id}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, department_id, username_changed FROM users WHERE id = ${tokenUser.id}`;
     const user = rows[0];
     if (!user) return res.sendStatus(404);
     res.json(user);
@@ -120,17 +120,31 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 // Update own profile
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   const user = (req as any).user;
-  const { email, password, firstName, lastName } = req.body;
+  const { email, password, firstName, lastName, username } = req.body;
   try {
+    const userRow = await sql`SELECT username, username_changed FROM users WHERE id = ${user.id}`;
+    if (!userRow.length) return res.status(404).json({ error: 'User not found' });
+    
+    let setUsernameChanged = false;
+    let newUsername = userRow[0].username;
+    
+    if (username && username !== userRow[0].username) {
+      if (userRow[0].username_changed) {
+        return res.status(403).json({ error: 'You have already changed your username once.' });
+      }
+      newUsername = username;
+      setUsernameChanged = true;
+    }
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
     } else {
-      await sql`UPDATE users SET email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
     }
     
     // Fetch updated user
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${user.id}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, username_changed FROM users WHERE id = ${user.id}`;
     res.json(rows[0]);
   } catch (error: any) {
     if (error.code === '23505') {
@@ -148,7 +162,7 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
   }
 
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role FROM users WHERE id = ${userId}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, username_changed FROM users WHERE id = ${userId}`;
     const user = rows[0];
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -193,7 +207,7 @@ app.get('/api/public/users', authenticateToken, async (req, res) => {
 app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const rows = await sql`
-      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, d.name as department_name
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
     `;
@@ -228,12 +242,13 @@ app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, r
 // Update user
 app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const { id } = req.params;
-  const { username, email, password, firstName, lastName, role, department_id } = req.body;
+  const { username, email, password, firstName, lastName, role, department_id, reset_username_changed } = req.body;
   const currentUser = (req as any).user;
   
   try {
+    const targetUser = await sql`SELECT role, username_changed FROM users WHERE id = ${id}`;
+    
     if (currentUser.role === 'Admin') {
-      const targetUser = await sql`SELECT role FROM users WHERE id = ${id}`;
       if (targetUser.length > 0 && (targetUser[0].role === 'Admin' || targetUser[0].role === 'Developer')) {
         return res.status(403).json({ error: 'Admins cannot edit Admin or Developer accounts' });
       }
@@ -242,11 +257,13 @@ app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req
       }
     }
 
+    const newUsernameChanged = reset_username_changed ? false : targetUser[0]?.username_changed;
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET username = ${username}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
     } else {
-      await sql`UPDATE users SET username = ${username}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
     }
     res.json({ message: 'User updated' });
   } catch (error: any) {
@@ -276,6 +293,76 @@ app.delete('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
+});
+
+// Bulk create users (Admin/Developer only)
+app.post('/api/users/bulk', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const { users: bulkUsers } = req.body;
+  const currentUser = (req as any).user;
+  
+  if (!Array.isArray(bulkUsers)) {
+    return res.status(400).json({ error: 'Expected users array' });
+  }
+
+  // Fetch departments to map names to IDs
+  const departmentsRows = await sql`SELECT id, name FROM departments`;
+  const depMap = new Map(departmentsRows.map((d: any) => [d.name.toLowerCase().trim(), d.id]));
+
+  const results = {
+    success: 0,
+    errors: [] as string[]
+  };
+
+  for (let i = 0; i < bulkUsers.length; i++) {
+    const u = bulkUsers[i];
+    const rowNum = i + 1; // 1-indexed for user display
+
+    if (!u.username || !u.firstName || !u.lastName || !u.password) {
+      results.errors.push(`Row ${rowNum}: Missing required fields (username, firstName, lastName, password).`);
+      continue;
+    }
+
+    let parsedRole = 'User';
+    if (u.role) {
+      const lowerRole = u.role.toLowerCase().trim();
+      if (lowerRole === 'admin') parsedRole = 'Admin';
+      else if (lowerRole === 'developer') parsedRole = 'Developer';
+      else parsedRole = 'User'; // Fallback to User for unrecognized strings
+    }
+
+    if (currentUser.role === 'Admin' && (parsedRole === 'Admin' || parsedRole === 'Developer')) {
+      results.errors.push(`Row ${rowNum} (${u.username}): Admins cannot create Admin or Developer accounts.`);
+      continue;
+    }
+
+    let depId = null;
+    if (u.department) {
+      const foundId = depMap.get(u.department.toLowerCase().trim());
+      if (foundId) {
+        depId = foundId;
+      } else {
+        results.errors.push(`Row ${rowNum} (${u.username}): Department "${u.department}" not found.`);
+        continue;
+      }
+    }
+
+    try {
+      const hash = await bcrypt.hash(u.password, 10);
+      await sql`
+        INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
+        VALUES (${u.username}, ${u.email || null}, ${hash}, ${u.firstName}, ${u.lastName}, ${parsedRole}, ${depId})
+      `;
+      results.success++;
+    } catch (error: any) {
+      if (error.code === '23505') { // unique violation
+        results.errors.push(`Row ${rowNum} (${u.username}): Username or email already exists.`);
+      } else {
+        results.errors.push(`Row ${rowNum} (${u.username}): Database error ${error.message}`);
+      }
+    }
+  }
+
+  res.json(results);
 });
 
 // Departments Endpoints

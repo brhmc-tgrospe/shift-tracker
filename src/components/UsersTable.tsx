@@ -10,7 +10,7 @@ interface UsersTableProps {
   toggleSelectUser: (id: number) => void;
   canModify: (targetUser: User) => boolean;
   canImpersonate: (targetUser: User) => boolean;
-  setEditingUser: (user: Partial<User> & { password?: string } | null) => void;
+  setEditingUser: (user: Partial<User> & { password?: string, reset_username_changed?: boolean } | null) => void;
   handleDelete: (id: number) => void;
   handleImpersonate: (id: number) => void;
 }

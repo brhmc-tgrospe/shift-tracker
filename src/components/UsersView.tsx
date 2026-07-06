@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, User } from '../context/AuthContext';
 import { Trash2, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Papa from 'papaparse';
 import { Department } from '../types';
 import { UserFormModal } from './UserFormModal';
 import { UsersTable } from './UsersTable';
@@ -12,7 +13,7 @@ export function UsersView() {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState('');
-  const [editingUser, setEditingUser] = useState<Partial<User> & { password?: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<Partial<User> & { password?: string, reset_username_changed?: boolean } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
@@ -111,6 +112,54 @@ export function UsersView() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const csvContent = "username,email,password,firstName,lastName,role,department\n";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "user_import_template.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const res = await fetch('/api/users/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ users: results.data })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to import users');
+          
+          let alertMsg = `Successfully imported ${data.success} users.`;
+          if (data.errors && data.errors.length > 0) {
+            alertMsg += `\n\nErrors encountered:\n${data.errors.join('\n')}`;
+          }
+          alert(alertMsg);
+          fetchUsers();
+        } catch (err: any) {
+          alert(err.message);
+        }
+      },
+      error: (error: any) => {
+        alert('Failed to parse CSV: ' + error.message);
+      }
+    });
+
+    e.target.value = '';
+  };
+
   const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedIds(e.target.checked ? new Set(filteredUsers.filter(u => canModify(u)).map(u => u.id)) : new Set());
   };
@@ -185,12 +234,25 @@ export function UsersView() {
             </button>
           )}
 
-          <button
-            onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', role: 'User' })}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto"
-          >
-            <Plus className="w-4 h-4" /> Add User
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={handleDownloadTemplate}
+              title={`Valid departments: ${departments.map(d => d.name).join(', ')}`}
+              className="px-4 py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-lg text-sm font-medium transition-colors"
+            >
+              CSV Template
+            </button>
+            <label className="cursor-pointer px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+              Import CSV
+              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            </label>
+            <button
+              onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', role: 'User' })}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add User
+            </button>
+          </div>
         </div>
       </div>
 

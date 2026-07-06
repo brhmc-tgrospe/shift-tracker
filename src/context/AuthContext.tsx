@@ -9,6 +9,7 @@ export interface User {
   email: string;
   department_id?: number;
   department_name?: string;
+  username_changed?: boolean;
 }
 
 interface AuthContextType {

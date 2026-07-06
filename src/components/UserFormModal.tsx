@@ -3,8 +3,8 @@ import { User } from '../context/AuthContext';
 import { Department } from '../types';
 
 interface UserFormModalProps {
-  editingUser: Partial<User> & { password?: string };
-  setEditingUser: (user: Partial<User> & { password?: string } | null) => void;
+  editingUser: Partial<User> & { password?: string, reset_username_changed?: boolean };
+  setEditingUser: (user: Partial<User> & { password?: string, reset_username_changed?: boolean } | null) => void;
   departments: Department[];
   currentUserRole: string | undefined;
   handleSave: () => void;
@@ -101,6 +101,21 @@ export function UserFormModal({ editingUser, setEditingUser, departments, curren
               )}
             </select>
           </div>
+
+          {editingUser.id && (currentUserRole === 'Admin' || currentUserRole === 'Developer') && (
+            <div className="flex items-center mt-2">
+              <input
+                type="checkbox"
+                id="reset_username_changed"
+                checked={!!editingUser.reset_username_changed}
+                onChange={e => setEditingUser({ ...editingUser, reset_username_changed: e.target.checked })}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
+              />
+              <label htmlFor="reset_username_changed" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                Reset one-time username change limit
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex justify-end gap-3">

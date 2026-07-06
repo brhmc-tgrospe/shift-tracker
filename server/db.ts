@@ -46,6 +46,12 @@ export const initDB = async () => {
       // Ignore if it fails or already dropped
     }
 
+    try {
+      await sql`ALTER TABLE users ADD COLUMN username_changed BOOLEAN DEFAULT FALSE`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
+
     await sql`
       CREATE TABLE IF NOT EXISTS shifts (
         id SERIAL PRIMARY KEY,
