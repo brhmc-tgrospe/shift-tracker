@@ -1,6 +1,7 @@
 import express from 'express';
 import sql from '../db.js';
 import { authenticateToken, requireAdminOrDeveloper } from '../auth.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 const router = express.Router();
 
@@ -80,6 +81,8 @@ router.post('/', authenticateToken, async (req, res) => {
         VALUES (${target_user_id}, ${targetMessage})
       `;
     }
+
+    await logActivity('REQUEST_CREATED', user.id, target_user_id || null, { type, details, reason, requestId: rows[0].id });
 
     res.status(201).json({ id: rows[0].id, message: 'Request submitted successfully' });
   } catch (error: any) {
@@ -245,6 +248,13 @@ router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req,
          VALUES (${request.target_user_id}, ${msg})
        `;
     }
+
+    await logActivity(
+      status === 'accepted' ? 'REQUEST_ACCEPTED' : 'REQUEST_DENIED',
+      user.id,
+      request.requester_id,
+      { requestId: id, type: request.type, remark }
+    );
 
     res.json({ message: 'Request updated' });
   } catch (error: any) {

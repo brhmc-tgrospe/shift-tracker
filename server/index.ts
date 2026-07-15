@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import sql, { initDB } from './db.js';
 import { JWT_SECRET, authenticateToken, requireDeveloper, requireAdminOrDeveloper } from './auth.js';
 import scheduleRequestsRouter from './routes/scheduleRequests.js';
+import activityLogsRouter from './routes/activityLogs.js';
+import { logActivity } from './utils/activityLogger.js';
 
 const app = express();
 app.use(cors());
@@ -513,8 +515,17 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
 
   try {
     if (shift === 'free' && hours === 0) {
+      const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
+      const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
       await sql`DELETE FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
+      
+      if (oldShift !== 'free') {
+        await logActivity('SHIFT_UPDATED', user.id, user.id, { date, oldShift, newShift: 'free' });
+      }
     } else {
+      const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
+      const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
+      
       await sql`
         INSERT INTO shifts (user_id, date, shift, hours, notes)
         VALUES (${user.id}, ${date}, ${shift}, ${hours}, ${notes || ''})
@@ -523,6 +534,10 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
           hours = EXCLUDED.hours,
           notes = EXCLUDED.notes
       `;
+      
+      if (oldShift !== shift) {
+        await logActivity('SHIFT_UPDATED', user.id, user.id, { date, oldShift, newShift: shift });
+      }
     }
     res.json({ message: 'Shift updated' });
   } catch (error: any) {
@@ -537,8 +552,13 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
     return res.status(400).json({ error: 'Expected shifts array' });
   }
 
+  const user = (req as any).user;
+
   try {
     for (const s of shifts) {
+      const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${s.user_id} AND date = ${s.date}`;
+      const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
+
       if (s.shift === 'free' && s.hours === 0) {
         await sql`DELETE FROM shifts WHERE user_id = ${s.user_id} AND date = ${s.date}`;
       } else {
@@ -550,6 +570,10 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
             hours = EXCLUDED.hours,
             notes = EXCLUDED.notes
         `;
+      }
+      
+      if (oldShift !== s.shift) {
+        await logActivity('BULK_SHIFT_UPDATE', user.id, s.user_id, { date: s.date, oldShift, newShift: s.shift });
       }
     }
     res.json({ message: 'Bulk shifts updated successfully' });
@@ -628,6 +652,9 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
 
     if (newShifts.length > 0) {
       for (const s of newShifts) {
+        const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${userId} AND date = ${s.date}`;
+        const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
+
         if (s.shift === 'free' && s.hours === 0) {
           await sql`DELETE FROM shifts WHERE user_id = ${userId} AND date = ${s.date}`;
         } else {
@@ -640,6 +667,10 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
               notes = EXCLUDED.notes
           `;
         }
+        
+        if (oldShift !== s.shift) {
+          await logActivity('DUPLICATE_SHIFT_UPDATE', user.id, userId, { date: s.date, oldShift, newShift: s.shift });
+        }
       }
     }
 
@@ -650,6 +681,7 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
 });
 
 app.use('/api/requests', scheduleRequestsRouter);
+app.use('/api/activity-logs', activityLogsRouter);
 
 // For Vercel Serverless Functions, we need to export the Express app
 export default app;

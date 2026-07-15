@@ -11,6 +11,7 @@ import { AdminScheduleView } from './components/AdminScheduleView';
 import { Profile } from './components/Profile';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ScheduleRequestsAdminView } from './components/ScheduleRequestsAdminView';
+import { ActivityLogsView } from './components/ActivityLogsView';
 import { Toaster } from 'react-hot-toast';
 import { ModalProvider } from './context/ModalContext';
 
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="departments" element={<DepartmentsView />} />
             <Route path="schedule" element={<AdminScheduleView />} />
             <Route path="requests" element={<ScheduleRequestsAdminView />} />
+            <Route path="logs" element={<ActivityLogsView />} />
           </Route>
 
           <Route 

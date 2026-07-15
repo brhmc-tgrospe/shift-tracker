@@ -98,6 +98,19 @@ export const initDB = async () => {
 
 
     await sql`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id SERIAL PRIMARY KEY,
+        action VARCHAR(100) NOT NULL,
+        actor_id INTEGER NOT NULL,
+        target_user_id INTEGER,
+        details JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(actor_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(target_user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+    `;
+
+    await sql`
       CREATE TABLE IF NOT EXISTS notifications (
         id SERIAL PRIMARY KEY,
         user_id INTEGER,
