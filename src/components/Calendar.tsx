@@ -16,6 +16,7 @@ interface CalendarProps {
   dayDataMap: Record<string, DayData>;
   onUpdateDay: (data: DayData) => void;
   readOnly?: boolean;
+  allowNotesEdit?: boolean;
 }
 
 export function Calendar({
@@ -29,7 +30,8 @@ export function Calendar({
   onNextYear,
   dayDataMap,
   onUpdateDay,
-  readOnly = false
+  readOnly = false,
+  allowNotesEdit = false
 }: CalendarProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -107,13 +109,19 @@ export function Calendar({
             const dateStr = formatYYYYMMDD(currentYear, currentMonth, day);
             const data = dayDataMap[dateStr];
             const shiftDef = data ? SHIFTS[data.shift] : SHIFTS['free'];
-            const displayHours = data ? (data.shift === 'on-leave' ? Math.max(data.hours, 8) : data.hours) : 0;
+            let displayHours = data ? data.hours : 0;
+            if (data && displayHours === 0 && data.shift !== 'free' && data.shift !== 'off' && data.shift !== 'holiday' && data.shift !== 'N/A') {
+              displayHours = SHIFTS[data.shift]?.defaultHours || 0;
+            }
+            if (data && data.shift === 'on-leave') {
+              displayHours = Math.max(displayHours, 8);
+            }
             
             return (
               <button
                 key={day}
-                onClick={() => { if (!readOnly) setSelectedDate(dateStr); }}
-                className={`group relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${!readOnly ? 'hover:scale-[1.02] active:scale-95' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
+                onClick={() => { if (!readOnly || allowNotesEdit) setSelectedDate(dateStr); }}
+                className={`group relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${(!readOnly || allowNotesEdit) ? 'hover:scale-[1.02] active:scale-95 cursor-pointer' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
               >
                 <span className="text-base font-medium">{day}</span>
                 {displayHours > 0 && (
@@ -145,6 +153,7 @@ export function Calendar({
         <ShiftModal
           date={selectedDate}
           initialData={dayDataMap[selectedDate]}
+          notesOnly={readOnly && allowNotesEdit}
           onSave={(data) => {
             onUpdateDay(data);
             setSelectedDate(null);

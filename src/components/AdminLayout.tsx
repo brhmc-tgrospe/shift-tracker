@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Users, Building2, Calendar, Moon, Sun, User as UserIcon, LogOut, Menu, X, Activity } from 'lucide-react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
+import { NotificationBell } from './NotificationBell';
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ export function AdminLayout() {
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Departments', path: '/admin/departments', icon: Building2 },
     { name: 'Monthly Schedule', path: '/admin/schedule', icon: Calendar },
+    { name: 'Schedule Requests', path: '/admin/requests', icon: Calendar },
   ];
 
   return (
@@ -85,6 +87,7 @@ export function AdminLayout() {
                 <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+                <NotificationBell />
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-300 hidden sm:block">Hi, {user?.firstName}</span>
                 <button onClick={() => navigate('/profile')} className="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
                   <UserIcon className="w-5 h-5" />

@@ -10,6 +10,9 @@ import { DepartmentsView } from './components/DepartmentsView';
 import { AdminScheduleView } from './components/AdminScheduleView';
 import { Profile } from './components/Profile';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ScheduleRequestsAdminView } from './components/ScheduleRequestsAdminView';
+import { Toaster } from 'react-hot-toast';
+import { ModalProvider } from './context/ModalContext';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
   const { user, isLoading } = useAuth();
@@ -44,7 +47,9 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <ModalProvider>
+        <Toaster position="top-right" />
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -62,6 +67,7 @@ export default function App() {
             <Route path="users" element={<UsersView />} />
             <Route path="departments" element={<DepartmentsView />} />
             <Route path="schedule" element={<AdminScheduleView />} />
+            <Route path="requests" element={<ScheduleRequestsAdminView />} />
           </Route>
 
           <Route 
@@ -82,6 +88,7 @@ export default function App() {
           />
         </Routes>
       </BrowserRouter>
+      </ModalProvider>
     </AuthProvider>
   );
 }

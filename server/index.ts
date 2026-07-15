@@ -4,51 +4,43 @@ import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import sql, { initDB } from './db.js';
+import { JWT_SECRET, authenticateToken, requireDeveloper, requireAdminOrDeveloper } from './auth.js';
+import scheduleRequestsRouter from './routes/scheduleRequests.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production';
 
 let dbInitialized = false;
+
+async function cleanupArchivedRequests() {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const result = await sql`
+      DELETE FROM schedule_requests 
+      WHERE is_archived_by_admin = TRUE 
+      AND archived_at < NOW() - INTERVAL '30 days'
+    `;
+    if (result && (result as any).count > 0) {
+       console.log(`Cleaned up ${(result as any).count} old archived schedule requests`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up archived requests:', error);
+  }
+}
+
 app.use(async (req, res, next) => {
   if (!dbInitialized) {
     await initDB();
     dbInitialized = true;
+    cleanupArchivedRequests(); // Fire and forget
   }
   next();
 });
 
-// Auth Middleware
-const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.sendStatus(403);
-    (req as any).user = user;
-    next();
-  });
-};
-
-const requireDeveloper = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const user = (req as any).user;
-  if (!user || user.role !== 'Developer') {
-    return res.status(403).json({ error: 'Developer access required' });
-  }
-  next();
-};
-
-const requireAdminOrDeveloper = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const user = (req as any).user;
-  if (!user || (user.role !== 'Developer' && user.role !== 'Admin')) {
-    return res.status(403).json({ error: 'Admin or Developer access required' });
-  }
-  next();
-};
+// Run it once every 24 hours if the server stays alive
+setInterval(cleanupArchivedRequests, 24 * 60 * 60 * 1000);
 
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password, firstName, lastName, department_id } = req.body;
@@ -203,7 +195,19 @@ app.get('/api/public/users', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all users
+// Get public users (for swapping)
+app.get('/api/users/public', authenticateToken, async (req, res) => {
+  try {
+    const rows = await sql`
+      SELECT id, "firstName", "lastName"
+      FROM users
+      WHERE role = 'User'
+    `;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const rows = await sql`
@@ -426,6 +430,20 @@ app.get('/api/shifts', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/users/:id/shifts', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = await sql`SELECT date, shift, hours, notes FROM shifts WHERE user_id = ${id}`;
+    const dayDataMap: Record<string, any> = {};
+    for (const shift of rows) {
+      dayDataMap[shift.date] = shift;
+    }
+    res.json(dayDataMap);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all shifts (public, read-only view)
 app.get('/api/public/shifts', authenticateToken, async (req, res) => {
   const { month } = req.query; // YYYY-MM
@@ -457,6 +475,29 @@ app.get('/api/shifts/all', authenticateToken, requireAdminOrDeveloper, async (re
   }
 });
 
+// Update notes ONLY for a specific shift (safe for standard users)
+app.put('/api/shifts/notes', authenticateToken, async (req, res) => {
+  const user = (req as any).user;
+  const { date, notes } = req.body;
+  
+  if (!date) {
+    return res.status(400).json({ error: 'Missing required field: date' });
+  }
+
+  try {
+    // Upsert but ONLY for notes. If shift doesn't exist, we default to 'free' / 0 hours to hold the note.
+    await sql`
+      INSERT INTO shifts (user_id, date, shift, hours, notes)
+      VALUES (${user.id}, ${date}, 'free', 0, ${notes || ''})
+      ON CONFLICT (user_id, date) DO UPDATE SET
+        notes = EXCLUDED.notes
+    `;
+    res.json({ message: 'Notes updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update or delete shift for current user
 app.post('/api/shifts', authenticateToken, async (req, res) => {
   const user = (req as any).user;
@@ -467,16 +508,7 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
   }
 
   if (user.role === 'User') {
-    const shiftMonthStr = date.substring(0, 7); // 'YYYY-MM'
-    
-    // We get current month in local time using a hack or just UTC
-    // A simpler way: '2026-06'
-    const now = new Date();
-    // Assuming local timezone logic is fine, or simple UTC is fine
-    const todayMonthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    if (shiftMonthStr > todayMonthStr) {
-      return res.status(403).json({ error: 'Users cannot edit shifts for upcoming months' });
-    }
+    return res.status(403).json({ error: 'Users cannot directly edit their schedules. Please submit a schedule request instead.' });
   }
 
   try {
@@ -546,11 +578,11 @@ app.get('/api/dashboard/metrics', authenticateToken, requireAdminOrDeveloper, as
     const onLeave: any[] = [];
     
     for (const row of rows) {
-      if (!row.shift || row.shift === 'free') {
+      if (!row.shift || row.shift === 'free' || row.shift === 'off') {
         dayOff.push(row);
       } else if (row.shift === 'on-leave') {
         onLeave.push(row);
-      } else {
+      } else if (row.shift !== 'N/A') {
         working.push(row);
       }
     }
@@ -616,6 +648,8 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
     res.status(500).json({ error: error.message });
   }
 });
+
+app.use('/api/requests', scheduleRequestsRouter);
 
 // For Vercel Serverless Functions, we need to export the Express app
 export default app;

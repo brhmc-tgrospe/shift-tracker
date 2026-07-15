@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format, addMonths, subMonths, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle, Eraser, Undo, XCircle } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS, ShiftType } from '../types';
 import { ScheduleGrid } from './ScheduleGrid';
+import { MonthlyScheduleGenerator } from '../utils/MonthlyScheduleGenerator';
+import toast from 'react-hot-toast';
+import { useModal } from '../context/ModalContext';
 
 // We need a palette of shift types (exclude 'on-leave' as requested)
 const AVAILABLE_SHIFTS = Object.values(SHIFTS).filter(s => s.type !== 'on-leave');
 
 export function AdminScheduleView() {
   const { token, user } = useAuth();
+  const modal = useModal();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Record<string, any>>({});
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
+  const [changeHistory, setChangeHistory] = useState<string[]>([]);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +59,7 @@ export function AdminScheduleView() {
       });
       setShifts(shiftsMap);
       setPendingChanges({});
+      setChangeHistory([]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -79,6 +86,7 @@ export function AdminScheduleView() {
       // Merge pending to shifts and clear pending
       setShifts(prev => ({ ...prev, ...pendingChanges }));
       setPendingChanges({});
+      setChangeHistory([]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -116,6 +124,7 @@ export function AdminScheduleView() {
       ...prev,
       [key]: newShift
     }));
+    setChangeHistory(prev => [...prev, key]);
   };
 
   const handleCellMouseDown = (userId: number, dateStr: string) => {
@@ -169,7 +178,7 @@ export function AdminScheduleView() {
     const sourceMonth = format(subMonths(currentDate, 1), 'yyyy-MM');
     const targetMonth = format(currentDate, 'yyyy-MM');
     
-    if (!window.confirm(`Copy schedule from ${sourceMonth} for this user?`)) return;
+    if (!(await modal.confirm(`Copy schedule from ${sourceMonth} for this user?`))) return;
 
     try {
       const res = await fetch('/api/shifts/duplicate', {
@@ -182,8 +191,91 @@ export function AdminScheduleView() {
       // Refetch to get new shifts
       fetchUsersAndShifts();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
+  };
+
+  const handleAutoGenerate = async () => {
+    const nonITUsers = users.filter(u => u.department_name !== 'IT Regular');
+    if (nonITUsers.length === 0) {
+      toast.error("No users found in non-IT departments to schedule.");
+      return;
+    }
+
+    const targetMonthStr = format(currentDate, 'yyyy-MM');
+    const existingShifts = Object.values(shifts).filter(s => 
+      s.date.startsWith(targetMonthStr) && nonITUsers.some(u => u.id === s.user_id)
+    );
+    
+    if (existingShifts.length > 0) {
+      const confirm = await modal.confirm("There are already plotted schedules for non-IT departments in this month. Do you want to generate a new schedule and overwrite them (you must still click Save to finalize)?");
+      if (!confirm) return;
+    }
+
+    try {
+      const generated = MonthlyScheduleGenerator.generate(nonITUsers, currentDate.getFullYear(), currentDate.getMonth());
+      const newPending = { ...pendingChanges };
+      generated.forEach(s => {
+        const key = `${s.userId}-${s.dateStr}`;
+        newPending[key] = {
+          user_id: s.userId,
+          date: s.dateStr,
+          shift: s.shift,
+          hours: s.hours,
+          notes: ''
+        };
+      });
+      setPendingChanges(newPending);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleClearSchedule = async () => {
+    if (users.length === 0) return;
+    
+    if (!(await modal.confirm("Are you sure you want to clear the schedule for all users for this month? (You must click Save to finalize)"))) {
+      return;
+    }
+
+    const newPending = { ...pendingChanges };
+    
+    users.forEach(u => {
+      days.forEach(d => {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        const key = `${u.id}-${dateStr}`;
+        newPending[key] = {
+          user_id: u.id,
+          date: dateStr,
+          shift: 'free',
+          hours: 0,
+          notes: ''
+        };
+      });
+    });
+    
+    setPendingChanges(newPending);
+    setChangeHistory([]);
+  };
+
+  const handleUndo = () => {
+    setChangeHistory(prevHistory => {
+      if (prevHistory.length === 0) return prevHistory;
+      const newHistory = [...prevHistory];
+      const lastKey = newHistory.pop();
+      
+      setPendingChanges(prevChanges => {
+        const newChanges = { ...prevChanges };
+        delete newChanges[lastKey!];
+        return newChanges;
+      });
+
+      return newHistory;
+    });
+  };
+
+  const handleCancelChanges = () => {
+    setShowCancelModal(true);
   };
 
   return (
@@ -210,12 +302,56 @@ export function AdminScheduleView() {
             </button>
           </div>
 
+          {/* 
+          <button
+            onClick={handleAutoGenerate}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-indigo-400 dark:border-indigo-700 print:hidden"
+          >
+            <Paintbrush className="w-4 h-4" />
+            Auto-Generate
+          </button>
+          */}
+
+          <button
+            onClick={handleClearSchedule}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-red-50 text-red-600 border border-red-300 dark:bg-gray-800 dark:hover:bg-red-900/30 dark:text-red-400 dark:border-red-800 print:hidden"
+          >
+            <Eraser className="w-4 h-4" />
+            Clear
+          </button>
+
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 print:hidden"
           >
             <Printer className="w-4 h-4" />
             Print
+          </button>
+
+          <button
+            onClick={handleUndo}
+            disabled={changeHistory.length === 0 || isSaving}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors print:hidden ${
+              changeHistory.length > 0 && !isSaving
+                ? 'bg-white hover:bg-orange-50 text-orange-600 border border-orange-300 dark:bg-gray-800 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800'
+                : 'bg-gray-100 text-gray-400 border border-gray-200 dark:bg-gray-800 dark:text-gray-600 dark:border-gray-700 cursor-not-allowed'
+            }`}
+          >
+            <Undo className="w-4 h-4" />
+            Undo
+          </button>
+
+          <button
+            onClick={handleCancelChanges}
+            disabled={Object.keys(pendingChanges).length === 0 || isSaving}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors print:hidden ${
+              Object.keys(pendingChanges).length > 0 && !isSaving
+                ? 'bg-white hover:bg-red-50 text-red-600 border border-red-300 dark:bg-gray-800 dark:hover:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                : 'bg-gray-100 text-gray-400 border border-gray-200 dark:bg-gray-800 dark:text-gray-600 dark:border-gray-700 cursor-not-allowed'
+            }`}
+          >
+            <XCircle className="w-4 h-4" />
+            Cancel
           </button>
 
           <button
@@ -259,7 +395,7 @@ export function AdminScheduleView() {
           </button>
         ))}
         
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department:</label>
           <select 
             value={departmentFilter}
@@ -307,6 +443,33 @@ export function AdminScheduleView() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-gray-500/20 dark:bg-gray-900/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-sm">
+            <h4 className="font-medium text-lg text-gray-900 dark:text-white mb-2">Cancel Changes</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to cancel all pending changes? This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition-colors"
+              >
+                No, keep them
+              </button>
+              <button
+                onClick={() => {
+                  setPendingChanges({});
+                  setChangeHistory([]);
+                  setShowCancelModal(false);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors"
+              >
+                Yes, cancel changes
+              </button>
+            </div>
           </div>
         </div>
       )}

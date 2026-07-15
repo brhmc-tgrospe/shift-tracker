@@ -6,9 +6,12 @@ import Papa from 'papaparse';
 import { Department } from '../types';
 import { UserFormModal } from './UserFormModal';
 import { UsersTable } from './UsersTable';
+import toast from 'react-hot-toast';
+import { useModal } from '../context/ModalContext';
 
 export function UsersView() {
   const { token, user, login } = useAuth();
+  const modal = useModal();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -46,19 +49,19 @@ export function UsersView() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!(await modal.confirm('Are you sure you want to delete this user?'))) return;
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error((await res.json()).error);
       fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} user(s)?`)) return;
+    if (!(await modal.confirm(`Are you sure you want to delete ${selectedIds.size} user(s)?`))) return;
 
     try {
       await Promise.all(
@@ -70,7 +73,7 @@ export function UsersView() {
       );
       fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -88,7 +91,7 @@ export function UsersView() {
       login(data.token, data.user);
       navigate('/');
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -108,7 +111,7 @@ export function UsersView() {
       setEditingUser(null);
       fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -146,14 +149,15 @@ export function UsersView() {
           if (data.errors && data.errors.length > 0) {
             alertMsg += `\n\nErrors encountered:\n${data.errors.join('\n')}`;
           }
-          alert(alertMsg);
+          await modal.alert(alertMsg);
           fetchUsers();
+          if (e.target) e.target.value = '';
         } catch (err: any) {
-          alert(err.message);
+          toast.error(err.message);
         }
       },
       error: (error: any) => {
-        alert('Failed to parse CSV: ' + error.message);
+        toast.error('Failed to parse CSV: ' + error.message);
       }
     });
 

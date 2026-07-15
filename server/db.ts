@@ -65,6 +65,50 @@ export const initDB = async () => {
       );
     `;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS schedule_requests (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        requester_id INTEGER NOT NULL,
+        target_user_id INTEGER,
+        details JSONB NOT NULL,
+        reason TEXT NOT NULL,
+        target_status VARCHAR(50),
+        admin_status VARCHAR(50) DEFAULT 'pending',
+        admin_remark TEXT,
+        is_archived_by_admin BOOLEAN DEFAULT FALSE,
+        archived_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(requester_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(target_user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+    `;
+
+    try {
+      await sql`ALTER TABLE schedule_requests ADD COLUMN is_archived_by_admin BOOLEAN DEFAULT FALSE`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
+
+    try {
+      await sql`ALTER TABLE schedule_requests ADD COLUMN archived_at TIMESTAMP`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
+
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `;
+
+
     // Seed departments
     const defaultDepartments = [
       'IT Regular',

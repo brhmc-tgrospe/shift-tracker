@@ -23,8 +23,14 @@ export function Metrics({ currentYear, currentMonth, dayDataMap }: MetricsProps)
     const yearPrefix = `${currentYear}-`;
 
     Object.values(dayDataMap).forEach(data => {
-      // For retroactivity, ensure on-leave counts as at least 8 hours
-      const hoursToAdd = data.shift === 'on-leave' ? Math.max(data.hours, 8) : data.hours;
+      let hoursToAdd = data.hours;
+      // Fallback for corrupted historical data where hours might be 0 but the shift type implies hours
+      if (hoursToAdd === 0 && data.shift !== 'free' && data.shift !== 'off' && data.shift !== 'holiday' && data.shift !== 'N/A') {
+        hoursToAdd = SHIFTS[data.shift]?.defaultHours || 0;
+      }
+      if (data.shift === 'on-leave') {
+        hoursToAdd = Math.max(hoursToAdd, 8);
+      }
 
       // Year calculation
       if (data.date.startsWith(yearPrefix)) {

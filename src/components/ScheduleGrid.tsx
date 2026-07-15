@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { Copy, AlertCircle, Loader2 } from 'lucide-react';
-import { User } from '../context/AuthContext';
+import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS } from '../types';
 
 const AVAILABLE_SHIFTS = Object.values(SHIFTS);
@@ -37,6 +37,9 @@ export function ScheduleGrid({
   onDuplicate,
   enableLegendFilter = false
 }: ScheduleGridProps) {
+  const { user } = useAuth();
+  const isAdminOrDev = user?.role === 'Admin' || user?.role === 'Developer';
+  
   const [activeShiftTypes, setActiveShiftTypes] = useState<Set<string>>(
     new Set(AVAILABLE_SHIFTS.map(s => s.type))
   );
@@ -154,19 +157,32 @@ export function ScheduleGrid({
                           }
 
                           const isPending = !!pendingChanges[key];
+                          const hasNotes = activeData?.notes && activeData.notes.trim() !== '';
+                          const showNotesIndicator = isAdminOrDev && hasNotes;
 
                           return (
                             <td
                               key={dateStr}
-                              className={`border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors ${!readOnly ? 'cursor-pointer' : ''
+                              className={`group/cell relative border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors ${!readOnly ? 'cursor-pointer' : ''
                                 } ${isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
                                 } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
                               onMouseDown={() => !readOnly && onCellMouseDown?.(u.id, dateStr)}
                               onMouseEnter={() => !readOnly && onCellMouseEnter?.(u.id, dateStr)}
                               onClick={() => !readOnly && onCellClick?.(u.id, dateStr)}
                             >
-                              <div className={`w-full h-8 print:h-5 flex items-center justify-center rounded text-xs print:text-[9px] font-semibold ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 print:text-gray-600'}`}>
+                              <div 
+                                className={`w-full h-8 print:h-5 flex items-center justify-center rounded text-xs print:text-[9px] font-semibold relative ${cellColor || 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 print:text-gray-600'}`}
+                              >
                                 {cellContent}
+                                {showNotesIndicator && (
+                                  <>
+                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 dark:bg-indigo-400 rounded-full print:hidden shadow-sm" />
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/cell:block w-max max-w-[200px] bg-gray-900 dark:bg-gray-700 text-white text-xs rounded p-2 z-[60] shadow-lg text-left whitespace-normal break-words pointer-events-none">
+                                      {activeData.notes}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </td>
                           );

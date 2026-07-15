@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Users, Calendar, Moon, Sun, Briefcase, Coffee, Umbrella, ChevronRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -158,6 +158,27 @@ function QuickActionLink({ to, icon, label }: { to: string, icon: React.ReactNod
 }
 
 function UsersModal({ title, users, onClose }: { title: string, users: MetricUser[], onClose: () => void }) {
+  const [shiftFilter, setShiftFilter] = useState<string>('all');
+  const [deptFilter, setDeptFilter] = useState<string>('all');
+
+  const uniqueShifts = useMemo(() => {
+    const shifts = new Set(users.map(u => u.shift).filter(s => s && s !== 'free' && s !== 'off'));
+    return Array.from(shifts).sort();
+  }, [users]);
+
+  const uniqueDepts = useMemo(() => {
+    const depts = new Set(users.map(u => u.department_name).filter(Boolean));
+    return Array.from(depts).sort();
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const matchShift = shiftFilter === 'all' || u.shift === shiftFilter;
+      const matchDept = deptFilter === 'all' || u.department_name === deptFilter;
+      return matchShift && matchDept;
+    });
+  }, [users, shiftFilter, deptFilter]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <motion.div 
@@ -184,15 +205,44 @@ function UsersModal({ title, users, onClose }: { title: string, users: MetricUse
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {(uniqueShifts.length > 0 || uniqueDepts.length > 0) && (
+          <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row gap-4 bg-gray-50 dark:bg-gray-800/50">
+            {uniqueShifts.length > 0 && (
+              <select
+                value={shiftFilter}
+                onChange={(e) => setShiftFilter(e.target.value)}
+                className="flex-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+              >
+                <option value="all">All Shifts</option>
+                {uniqueShifts.map(shift => (
+                  <option key={shift} value={shift}>{shift}</option>
+                ))}
+              </select>
+            )}
+            {uniqueDepts.length > 0 && (
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="flex-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+              >
+                <option value="all">All Departments</option>
+                {uniqueDepts.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
         
         <div className="overflow-y-auto p-2">
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               No employees found for this status today.
             </div>
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <li key={u.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-colors flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">

@@ -4,11 +4,12 @@ import { ShiftType, SHIFTS, DayData } from '../types';
 interface ShiftModalProps {
   date: string;
   initialData?: DayData;
+  notesOnly?: boolean;
   onSave: (data: DayData) => void;
   onClose: () => void;
 }
 
-export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalProps) {
+export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: ShiftModalProps) {
   const [shift, setShift] = useState<ShiftType>(initialData?.shift || 'free');
   const [hours, setHours] = useState<number | ''>(initialData?.hours ?? 0);
   const [notes, setNotes] = useState<string>(initialData?.notes || '');
@@ -52,25 +53,31 @@ export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalPro
         <div className="p-5 space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Shift Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(SHIFTS) as [ShiftType, typeof SHIFTS[ShiftType]][])
-                .map(([key, def]) => (
-                <button
-                  key={key}
-                  onClick={() => handleShiftChange(key)}
-                  className={`px-3 py-2 text-sm rounded-lg border transition-all ${
-                    shift === key 
-                      ? `ring-2 ring-offset-1 dark:ring-offset-gray-800 ring-blue-500 ${def.colorClass}` 
-                      : `bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`
-                  }`}
-                >
-                  {def.label}
-                </button>
-              ))}
-            </div>
+            {notesOnly ? (
+              <div className={`px-3 py-2 text-sm rounded-lg border font-medium ${SHIFTS[shift].colorClass} opacity-80 cursor-not-allowed`}>
+                {SHIFTS[shift].label}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.entries(SHIFTS) as [ShiftType, typeof SHIFTS[ShiftType]][])
+                  .map(([key, def]) => (
+                  <button
+                    key={key}
+                    onClick={() => handleShiftChange(key)}
+                    className={`px-3 py-2 text-sm rounded-lg border transition-all ${
+                      shift === key 
+                        ? `ring-2 ring-offset-1 dark:ring-offset-gray-800 ring-blue-500 ${def.colorClass}` 
+                        : `bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`
+                    }`}
+                  >
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
-          {shift !== 'free' && (
+          {(notesOnly || shift !== 'free') && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
               <textarea
@@ -84,7 +91,7 @@ export function ShiftModal({ date, initialData, onSave, onClose }: ShiftModalPro
           )}
         </div>
 
-        {shift !== 'free' && (
+        {(notesOnly || shift !== 'free') && (
           <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-end gap-2 animate-in fade-in duration-200">
             <button
               onClick={onClose}

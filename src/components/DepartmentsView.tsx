@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Edit2, Trash2, Building2, Search } from 'lucide-react';
 import { Department } from '../types';
+import toast from 'react-hot-toast';
+import { useModal } from '../context/ModalContext';
 
 export function DepartmentsView() {
   const { token } = useAuth();
+  const modal = useModal();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState('');
   const [editingDept, setEditingDept] = useState<Partial<Department> | null>(null);
@@ -25,13 +28,13 @@ export function DepartmentsView() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this department?')) return;
+    if (!(await modal.confirm('Are you sure you want to delete this department?'))) return;
     try {
       const res = await fetch(`/api/departments/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error((await res.json()).error);
       fetchDepartments();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -52,7 +55,7 @@ export function DepartmentsView() {
       setEditingDept(null);
       fetchDepartments();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
