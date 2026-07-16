@@ -10,7 +10,7 @@ interface UserScheduleOverviewModalProps {
 }
 
 export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModalProps) {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Record<string, any>>({});
@@ -18,6 +18,8 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const isAdminOrDev = currentUser?.role === 'Admin' || currentUser?.role === 'Developer';
 
   useEffect(() => {
     fetchUsersAndShifts();
@@ -149,7 +151,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
             shifts={shifts}
             readOnly={true}
             hideSignatories={true}
-            hideTotalHours={true}
+            hideTotalHours={!isAdminOrDev}
             isLoading={isLoading}
             enableLegendFilter={true}
           />
