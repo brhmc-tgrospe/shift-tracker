@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ScheduleRequest, SHIFTS } from '../types';
-import { Check, X, Clock, Pencil, Trash2 } from 'lucide-react';
+import { Check, X, Clock, Pencil, Trash2, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RequestFilters } from './RequestFilters';
 import { Pagination } from './Pagination';
 import { RequestChangeModal } from './RequestChangeModal';
 import { SwapScheduleModal } from './SwapScheduleModal';
 import { useModal } from '../context/ModalContext';
+import { UserScheduleOverviewModal } from './UserScheduleOverviewModal';
 
 export function ScheduleRequestsAdminView() {
   const { token, user } = useAuth();
@@ -23,6 +24,7 @@ export function ScheduleRequestsAdminView() {
   const [editingSwap, setEditingSwap] = useState<ScheduleRequest | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilterType, setDateFilterType] = useState<'created' | 'shift'>('created');
@@ -277,7 +279,16 @@ export function ScheduleRequestsAdminView() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Schedule Requests</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Schedule Requests</h2>
+        <button
+          onClick={() => setIsOverviewModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors font-medium text-sm"
+        >
+          <Users className="w-4 h-4" />
+          View Schedules
+        </button>
+      </div>
       
       <RequestFilters
         searchTerm={searchTerm}
@@ -541,6 +552,9 @@ export function ScheduleRequestsAdminView() {
           dayDataMap={{}} // Pass empty dayDataMap
           editRequest={editingSwap}
         />
+      )}
+      {isOverviewModalOpen && (
+        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} />
       )}
     </div>
   );
