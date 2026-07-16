@@ -22,8 +22,8 @@ router.get('/', async (req, res) => {
     const rows = await sql`
       SELECT 
         l.id, l.action, l.actor_id, l.target_user_id, l.details, l.created_at,
-        u1.username as actor_username, u1."firstName" as actor_firstName, u1."lastName" as actor_lastName,
-        u2.username as target_username, u2."firstName" as target_firstName, u2."lastName" as target_lastName,
+        u1.username as actor_username, u1."firstName" as "actor_firstName", u1."lastName" as "actor_lastName",
+        u2.username as target_username, u2."firstName" as "target_firstName", u2."lastName" as "target_lastName",
         COUNT(*) OVER() AS full_count
       FROM activity_logs l
       LEFT JOIN users u1 ON l.actor_id = u1.id
