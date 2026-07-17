@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ScheduleRequest, SHIFTS } from '../types';
-import { Check, X, Clock, Pencil, Trash2, Users } from 'lucide-react';
+import { Check, X, Clock, Pencil, Trash2, Users, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RequestFilters } from './RequestFilters';
 import { Pagination } from './Pagination';
@@ -9,6 +9,7 @@ import { RequestChangeModal } from './RequestChangeModal';
 import { SwapScheduleModal } from './SwapScheduleModal';
 import { useModal } from '../context/ModalContext';
 import { UserScheduleOverviewModal } from './UserScheduleOverviewModal';
+import { RequestDetailsModal } from './RequestDetailsModal';
 
 export function ScheduleRequestsAdminView() {
   const { token, user } = useAuth();
@@ -22,6 +23,7 @@ export function ScheduleRequestsAdminView() {
 
   const [editingChange, setEditingChange] = useState<ScheduleRequest | null>(null);
   const [editingSwap, setEditingSwap] = useState<ScheduleRequest | null>(null);
+  const [viewingRequest, setViewingRequest] = useState<ScheduleRequest | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
@@ -434,6 +436,17 @@ export function ScheduleRequestsAdminView() {
                         </span>
                       )}
 
+                      {/* View Action for all Admin/Devs */}
+                      <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-2 ml-1">
+                        <button
+                          onClick={() => setViewingRequest(req)}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                          title="View Request"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+
                       {/* Developer actions */}
                       {user?.role === 'Developer' && (
                         <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-2 ml-1">
@@ -553,8 +566,14 @@ export function ScheduleRequestsAdminView() {
           editRequest={editingSwap}
         />
       )}
+      {viewingRequest && (
+        <RequestDetailsModal 
+          request={viewingRequest}
+          onClose={() => setViewingRequest(null)}
+        />
+      )}
       {isOverviewModalOpen && (
-        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} />
+        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} showTotalHours={true} />
       )}
     </div>
   );
