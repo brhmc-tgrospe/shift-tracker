@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ScheduleRequest, SHIFTS } from '../types';
+import { ScheduleRequest } from '../types';
+import { RequestActionCard } from './RequestActionCard';
 import { Check, X, Clock, Pencil, Trash2, Users, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RequestFilters } from './RequestFilters';
@@ -16,10 +17,7 @@ export function ScheduleRequestsAdminView() {
   const modal = useModal();
   const [requests, setRequests] = useState<ScheduleRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<number | null>(null);
-  const [denyModalOpen, setDenyModalOpen] = useState(false);
-  const [denyRequestId, setDenyRequestId] = useState<number | null>(null);
-  const [remark, setRemark] = useState('');
+
 
   const [editingChange, setEditingChange] = useState<ScheduleRequest | null>(null);
   const [editingSwap, setEditingSwap] = useState<ScheduleRequest | null>(null);
@@ -114,44 +112,7 @@ export function ScheduleRequestsAdminView() {
     fetchRequests();
   }, [token]);
 
-  const formatDateLine = (d: any) => {
-    const safeDateObj = new Date(`${d.date}T12:00:00`);
-    const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = SHIFTS[d.shift as keyof typeof SHIFTS]?.defaultHours ?? 0;
-    return `${d.date} (${dayName}) | ${hours} Hours`;
-  };
 
-  const handleAction = async (id: number, status: 'accepted' | 'denied', reasonText: string) => {
-    if (status === 'denied' && !reasonText) {
-      toast.error('Please enter a remark for denying the request.');
-      return;
-    }
-
-    setProcessingId(id);
-    try {
-      const res = await fetch(`/api/requests/${id}/admin`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status, remark: reasonText })
-      });
-      if (res.ok) {
-        setRemark('');
-        fetchRequests();
-        toast.success(`Request ${status} successfully`);
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Failed to process request');
-      }
-    } catch (e) {
-      console.error('Action failed', e);
-      toast.error('Failed to process request');
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleDelete = async (id: number) => {
     try {
@@ -212,70 +173,7 @@ export function ScheduleRequestsAdminView() {
     setSelectedIds(newSelected);
   };
 
-  const renderDetails = (req: ScheduleRequest) => {
-    if (req.type === 'change') {
-      return (
-        <div className="flex flex-col gap-1 text-sm">
-          {req.details.updates ? (
-            req.details.updates.map((u: any, i: number) => {
-              const safeDateObj = new Date(`${u.date}T12:00:00`);
-              const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-              const currentLabel = SHIFTS[u.currentShift as keyof typeof SHIFTS]?.label || u.currentShift;
-              const reqLabel = SHIFTS[u.requestedShift as keyof typeof SHIFTS]?.label || u.requestedShift;
-              return (
-                <div key={i} className="text-gray-900 dark:text-gray-100">
-                  <span className="font-semibold">{u.date} ({dayName}):</span> {currentLabel} &rarr; {reqLabel}
-                </div>
-              );
-            })
-          ) : (
-            <>
-              {req.details.dates?.length === 1 && (
-                <div className="text-gray-900 dark:text-gray-100">
-                  <span className="font-semibold mr-1">From:</span>
-                  Unknown (Original Schedule)
-                </div>
-              )}
-              {req.details.dates?.map((d: any, i: number) => {
-                const prefix = req.details.dates.length === 2 ? (i === 0 ? 'From:' : 'To:') : 'To:';
-                return (
-                  <div key={`${d.date}-${i}`} className="text-gray-900 dark:text-gray-100">
-                    <span className="font-semibold mr-1">{prefix}</span>
-                    {formatDateLine(d)}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      );
-    } else if (req.type === 'swap') {
-      return (
-        <div className="flex flex-col gap-2 mt-1">
-          <div>
-            <span className="font-semibold block mb-1">{req.requester_firstName} gives:</span>
-            <div className="flex flex-col gap-1 text-sm pl-2">
-              {req.details.requesterDates?.map(d => (
-                <div key={d.date} className="text-gray-900 dark:text-gray-100">
-                  {formatDateLine(d)}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="font-semibold block mb-1">{req.target_firstName} gives:</span>
-            <div className="flex flex-col gap-1 text-sm pl-2">
-              {req.details.targetDates?.map(d => (
-                <div key={d.date} className="text-gray-900 dark:text-gray-100">
-                  {formatDateLine(d)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
+
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading requests...</div>;
 
@@ -367,7 +265,7 @@ export function ScheduleRequestsAdminView() {
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {renderDetails(req)}
+                    <RequestActionCard request={req} token={token} onActionComplete={fetchRequests} />
                   </td>
                   <td className="px-6 py-4 max-w-xs truncate" title={req.reason}>
                     {req.reason}
@@ -405,36 +303,7 @@ export function ScheduleRequestsAdminView() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end items-center gap-2">
-                      {req.admin_status === 'pending' && (
-                        req.type !== 'swap' || req.target_status === 'accepted'
-                      ) ? (
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleAction(req.id, 'accepted', '')}
-                            disabled={processingId !== null}
-                            className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-md transition-colors disabled:opacity-50"
-                            title="Accept"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDenyRequestId(req.id);
-                              setRemark('');
-                              setDenyModalOpen(true);
-                            }}
-                            disabled={processingId !== null}
-                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors disabled:opacity-50"
-                            title="Deny"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">
-                          {req.admin_status !== 'pending' ? 'Resolved' : 'Waiting on target'}
-                        </span>
-                      )}
+
 
                       {/* View Action for all Admin/Devs */}
                       <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-2 ml-1">
@@ -505,51 +374,7 @@ export function ScheduleRequestsAdminView() {
         )}
       </div>
 
-      {denyModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Deny Request</h2>
-              <button onClick={() => setDenyModalOpen(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Reason for denial
-              </label>
-              <textarea
-                rows={3}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-                placeholder="Enter remarks..."
-                autoFocus
-              />
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={() => setDenyModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (denyRequestId) {
-                      handleAction(denyRequestId, 'denied', remark);
-                      setDenyModalOpen(false);
-                    }
-                  }}
-                  disabled={!remark.trim()}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                >
-                  Deny Request
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
       {editingChange && (
         <RequestChangeModal
           onClose={() => setEditingChange(null)}

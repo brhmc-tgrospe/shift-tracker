@@ -4,6 +4,7 @@ import { X, ArrowRightLeft, Search, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth, User } from '../context/AuthContext';
 import { DatePicker } from './DatePicker';
+import { ShiftDatePickerRow } from './ShiftDatePickerRow';
 
 interface Props {
   onClose: () => void;
@@ -195,16 +196,11 @@ export function SwapScheduleModal({ onClose, onSuccess, dayDataMap, editRequest 
         const shiftLabel = d.shift ? (SHIFTS[d.shift as keyof typeof SHIFTS]?.label || d.shift) : 'No schedule';
         return (
           <div key={`give-${i}`} className="flex gap-2 mb-2 items-start">
-            <DatePicker
-              value={d.date}
-              onChange={val => updateMyDate(i, 'date', val)}
-              placeholder="Select date"
-              required
-              className="flex-1"
+            <ShiftDatePickerRow
+              date={d.date}
+              onDateChange={val => updateMyDate(i, 'date', val)}
+              shiftLabel={shiftLabel}
             />
-            <div className="w-28 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300 truncate">
-              {d.date ? shiftLabel : 'Pick date'}
-            </div>
             {myDates.length > 1 && (
               <button type="button" onClick={() => setMyDates(myDates.filter((_, idx) => idx !== i))} className="text-red-500 p-1 mt-1">
                 <X className="w-4 h-4" />
@@ -229,16 +225,11 @@ export function SwapScheduleModal({ onClose, onSuccess, dayDataMap, editRequest 
         const shiftLabel = d.shift ? (SHIFTS[d.shift as keyof typeof SHIFTS]?.label || d.shift) : 'No schedule';
         return (
           <div key={`receive-${i}`} className="flex gap-2 mb-2 items-start">
-            <DatePicker
-              value={d.date}
-              onChange={val => updateTargetDate(i, 'date', val)}
-              placeholder="Select date"
-              required
-              className="flex-1"
+            <ShiftDatePickerRow
+              date={d.date}
+              onDateChange={val => updateTargetDate(i, 'date', val)}
+              shiftLabel={shiftLabel}
             />
-            <div className="w-28 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300 truncate">
-              {d.date ? shiftLabel : 'Pick date'}
-            </div>
             {/* Missing delete button is intentional, targets length follows give length */}
             <div className="w-6 hidden md:block"></div>
           </div>

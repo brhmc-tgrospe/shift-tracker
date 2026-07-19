@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScheduleRequest, SHIFTS } from '../types';
+import { ScheduleRequest } from '../types';
 import { X } from 'lucide-react';
+import { RequestActionCard } from './RequestActionCard';
 
 interface RequestDetailsModalProps {
   request: ScheduleRequest;
@@ -8,77 +9,7 @@ interface RequestDetailsModalProps {
 }
 
 export function RequestDetailsModal({ request, onClose }: RequestDetailsModalProps) {
-  const formatDateLine = (d: any) => {
-    const safeDateObj = new Date(`${d.date}T12:00:00`);
-    const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = SHIFTS[d.shift as keyof typeof SHIFTS]?.defaultHours ?? 0;
-    return `${d.date} (${dayName}) | ${hours} Hours`;
-  };
 
-  const renderDetails = () => {
-    if (request.type === 'change') {
-      return (
-        <div className="flex flex-col gap-2 text-sm">
-          {request.details.updates ? (
-            request.details.updates.map((u: any, i: number) => {
-              const safeDateObj = new Date(`${u.date}T12:00:00`);
-              const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-              const currentLabel = SHIFTS[u.currentShift as keyof typeof SHIFTS]?.label || u.currentShift;
-              const reqLabel = SHIFTS[u.requestedShift as keyof typeof SHIFTS]?.label || u.requestedShift;
-              return (
-                <div key={i} className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md">
-                  <span className="font-semibold">{u.date} ({dayName}):</span> {currentLabel} &rarr; {reqLabel}
-                </div>
-              );
-            })
-          ) : (
-            <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md">
-              {request.details.dates?.length === 1 && (
-                <div className="text-gray-900 dark:text-gray-100">
-                  <span className="font-semibold mr-1">From:</span>
-                  Unknown (Original Schedule)
-                </div>
-              )}
-              {request.details.dates?.map((d: any, i: number) => {
-                const prefix = request.details.dates!.length === 2 ? (i === 0 ? 'From:' : 'To:') : 'To:';
-                return (
-                  <div key={`${d.date}-${i}`} className="text-gray-900 dark:text-gray-100">
-                    <span className="font-semibold mr-1">{prefix}</span>
-                    {formatDateLine(d)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      );
-    } else if (request.type === 'swap') {
-      return (
-        <div className="flex flex-col gap-4 mt-1 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
-          <div>
-            <span className="font-semibold block mb-1 text-gray-700 dark:text-gray-300">{request.requester_firstName} gives:</span>
-            <div className="flex flex-col gap-1 text-sm pl-2">
-              {request.details.requesterDates?.map((d: any) => (
-                <div key={d.date} className="text-gray-900 dark:text-gray-100">
-                  {formatDateLine(d)}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="font-semibold block mb-1 text-gray-700 dark:text-gray-300">{request.target_firstName} gives:</span>
-            <div className="flex flex-col gap-1 text-sm pl-2">
-              {request.details.targetDates?.map((d: any) => (
-                <div key={d.date} className="text-gray-900 dark:text-gray-100">
-                  {formatDateLine(d)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -124,7 +55,7 @@ export function RequestDetailsModal({ request, onClose }: RequestDetailsModalPro
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Details
             </label>
-            {renderDetails()}
+            <RequestActionCard request={request} token={null} showActions={false} />
           </div>
 
           <div>

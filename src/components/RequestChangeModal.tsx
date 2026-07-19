@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { DatePicker } from './DatePicker';
+import { ShiftDatePickerRow } from './ShiftDatePickerRow';
 
 interface Props {
   onClose: () => void;
@@ -131,16 +132,11 @@ export function RequestChangeModal({ onClose, onSuccess, dayDataMap, editRequest
               const currentShiftLabel = u.currentShift ? (SHIFTS[u.currentShift as keyof typeof SHIFTS]?.label || u.currentShift) : 'No schedule';
               return (
                 <div key={i} className="flex gap-2 items-start mb-2">
-                  <DatePicker
-                    value={u.date}
-                    onChange={val => updateRow(i, 'date', val)}
-                    placeholder="Select date"
-                    required
-                    className="flex-1"
+                  <ShiftDatePickerRow
+                    date={u.date}
+                    onDateChange={val => updateRow(i, 'date', val)}
+                    shiftLabel={currentShiftLabel}
                   />
-                  <div className="w-28 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300 truncate">
-                    {u.date ? currentShiftLabel : 'Pick date'}
-                  </div>
                   <select
                     value={u.requestedShift}
                     onChange={e => updateRow(i, 'requestedShift', e.target.value)}

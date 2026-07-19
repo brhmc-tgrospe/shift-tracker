@@ -191,7 +191,7 @@ export function AdminScheduleView() {
     }
 
     const targetMonthStr = format(currentDate, 'yyyy-MM');
-    const existingShifts = Object.values(shifts).filter(s => 
+    const existingShifts = Object.values(shifts).filter((s: any) => 
       s.date.startsWith(targetMonthStr) && nonITUsers.some(u => u.id === s.user_id)
     );
     
