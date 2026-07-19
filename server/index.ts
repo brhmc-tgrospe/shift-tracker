@@ -623,6 +623,7 @@ app.get('/api/dashboard/metrics', authenticateToken, requireAdminOrDeveloper, as
 
 // Duplicate Shifts Endpoint
 app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
+  const user = (req as any).user;
   const { userId, sourceMonth, targetMonth } = req.body;
   if (!userId || !sourceMonth || !targetMonth) {
     return res.status(400).json({ error: 'Missing required fields' });

@@ -463,6 +463,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
           onClose={() => setEditingSwap(null)}
           onSuccess={() => { setEditingSwap(null); fetchRequests(); }}
           editRequest={editingSwap}
+          dayDataMap={dayDataMap}
         />
       )}
     </div>

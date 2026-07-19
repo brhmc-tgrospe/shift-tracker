@@ -44,6 +44,7 @@ export interface ScheduleRequest {
     dates?: DayData[]; // For 'change'
     requesterDates?: DayData[]; // For 'swap'
     targetDates?: DayData[]; // For 'swap'
+    updates?: { date: string, currentShift: string, requestedShift: string, hours?: number }[];
   };
   reason: string;
   target_status?: 'pending' | 'accepted' | 'denied' | null;

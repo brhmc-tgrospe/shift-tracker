@@ -51,7 +51,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
     }
   };
 
-  const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort((a, b) => {
+  const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department'))) as string[]].sort((a: string, b: string) => {
     if (a === 'All') return -1;
     if (b === 'All') return 1;
     const order = [

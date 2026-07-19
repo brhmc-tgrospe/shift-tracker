@@ -398,7 +398,7 @@ export function ScheduleRequestsAdminView() {
         />
       )}
       {isOverviewModalOpen && (
-        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} showTotalHours={true} />
+        <UserScheduleOverviewModal onClose={() => setIsOverviewModalOpen(false)} />
       )}
     </div>
   );
