@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle, Eraser, Undo, XCircle } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
@@ -30,8 +30,7 @@ export function AdminScheduleView() {
   const [selectedShiftType, setSelectedShiftType] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Auto-save timer ref
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
 
   useEffect(() => {
     fetchUsersAndShifts();
@@ -94,18 +93,7 @@ export function AdminScheduleView() {
     }
   }, [pendingChanges, token]);
 
-  // 60-second Auto-save
-  useEffect(() => {
-    if (Object.keys(pendingChanges).length > 0) {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        handleSave();
-      }, 60000); // 60 seconds
-    }
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [pendingChanges, handleSave]);
+
 
   const updateCell = (userId: number, dateStr: string, shiftTypeId: string) => {
     const shiftInfo = AVAILABLE_SHIFTS.find(s => s.type === shiftTypeId);
