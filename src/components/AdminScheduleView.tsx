@@ -40,7 +40,7 @@ export function AdminScheduleView() {
     setIsLoading(true);
     try {
       const [usersRes, shiftsRes] = await Promise.all([
-        fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/users?sortBy=lastName', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/shifts/all?month=${format(currentDate, 'yyyy-MM')}`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
