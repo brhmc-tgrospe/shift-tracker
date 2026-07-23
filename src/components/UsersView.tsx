@@ -19,17 +19,36 @@ export function UsersView() {
   const [editingUser, setEditingUser] = useState<Partial<User> & { password?: string, reset_username_changed?: boolean } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+  const [departmentFilter, setDepartmentFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('firstName');
+  const [sortDir, setSortDir] = useState('asc');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
     fetchUsers();
+  }, [debouncedSearchQuery, roleFilter, departmentFilter, sortBy, sortDir]);
+
+  useEffect(() => {
     fetchDepartments();
   }, []);
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+      const params = new URLSearchParams();
+      if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
+      if (roleFilter !== 'All') params.append('role', roleFilter);
+      if (departmentFilter !== 'All') params.append('department', departmentFilter);
+      params.append('sortBy', sortBy);
+      params.append('sortDir', sortDir);
+
+      const res = await fetch(`/api/users?${params.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to fetch users');
       setUsers(await res.json());
       setSelectedIds(new Set());
@@ -165,7 +184,7 @@ export function UsersView() {
   };
 
   const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedIds(e.target.checked ? new Set(filteredUsers.filter(u => canModify(u)).map(u => u.id)) : new Set());
+    setSelectedIds(e.target.checked ? new Set(users.filter(u => canModify(u)).map(u => u.id)) : new Set());
   };
 
   const toggleSelectUser = (id: number) => {
@@ -185,14 +204,7 @@ export function UsersView() {
     return false;
   };
 
-  const filteredUsers = users.filter(u => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = u.username.toLowerCase().includes(query) ||
-      u.firstName.toLowerCase().includes(query) ||
-      u.lastName.toLowerCase().includes(query) ||
-      (u.department_name && u.department_name.toLowerCase().includes(query));
-    return matchesSearch && (roleFilter === 'All' || u.role === roleFilter);
-  });
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -229,6 +241,17 @@ export function UsersView() {
             <option value="Developer">Developer</option>
           </select>
 
+          <select
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white"
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+          >
+            <option value="All">All Departments</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.name}>{d.name}</option>
+            ))}
+          </select>
+
           {selectedIds.size > 0 && (
             <button
               onClick={handleBulkDelete}
@@ -261,7 +284,7 @@ export function UsersView() {
       </div>
 
       <UsersTable
-        filteredUsers={filteredUsers}
+        users={users}
         selectedIds={selectedIds}
         currentUser={user}
         toggleSelectAll={toggleSelectAll}
@@ -271,6 +294,10 @@ export function UsersView() {
         setEditingUser={setEditingUser}
         handleDelete={handleDelete}
         handleImpersonate={handleImpersonate}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        setSortBy={setSortBy}
+        setSortDir={setSortDir}
       />
 
       {editingUser && (

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Trash2, Edit2, VenetianMask } from 'lucide-react';
+import { Trash2, Edit2, VenetianMask, ArrowUp, ArrowDown } from 'lucide-react';
 import { User } from '../context/AuthContext';
 
 interface UsersTableProps {
-  filteredUsers: User[];
+  users: User[];
   selectedIds: Set<number>;
   currentUser: User | null;
   toggleSelectAll: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -13,10 +13,14 @@ interface UsersTableProps {
   setEditingUser: (user: Partial<User> & { password?: string, reset_username_changed?: boolean } | null) => void;
   handleDelete: (id: number) => void;
   handleImpersonate: (id: number) => void;
+  sortBy: string;
+  sortDir: string;
+  setSortBy: (col: string) => void;
+  setSortDir: (dir: string) => void;
 }
 
 export function UsersTable({
-  filteredUsers,
+  users,
   selectedIds,
   currentUser,
   toggleSelectAll,
@@ -25,8 +29,25 @@ export function UsersTable({
   canImpersonate,
   setEditingUser,
   handleDelete,
-  handleImpersonate
+  handleImpersonate,
+  sortBy,
+  sortDir,
+  setSortBy,
+  setSortDir
 }: UsersTableProps) {
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+  };
+
+  const renderSortIcon = (col: string) => {
+    if (sortBy !== col) return null;
+    return sortDir === 'asc' ? <ArrowUp className="w-4 h-4 inline ml-1" /> : <ArrowDown className="w-4 h-4 inline ml-1" />;
+  };
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
       <div className="overflow-x-auto">
@@ -37,25 +58,37 @@ export function UsersTable({
                 <input
                   type="checkbox"
                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={filteredUsers.filter(u => canModify(u)).length > 0 && selectedIds.size === filteredUsers.filter(u => canModify(u)).length}
+                  checked={users.filter(u => canModify(u)).length > 0 && selectedIds.size === users.filter(u => canModify(u)).length}
                   onChange={toggleSelectAll}
                 />
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+              <th 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => handleSort('firstName')}
+              >
+                First Name {renderSortIcon('firstName')}
+              </th>
+              <th 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => handleSort('lastName')}
+              >
+                Last Name {renderSortIcon('lastName')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Username</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Department</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredUsers.length === 0 ? (
+            {users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                   No users found.
                 </td>
               </tr>
             ) : (
-              filteredUsers.map(u => (
+              users.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
@@ -66,16 +99,15 @@ export function UsersTable({
                       disabled={u.id === currentUser?.id || !canModify(u)}
                     />
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {u.firstName}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {u.lastName}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 font-bold transition-colors">
-                        {u.firstName[0]}{u.lastName[0]}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{u.firstName} {u.lastName}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{u.email} ({u.username})</div>
-                      </div>
-                    </div>
+                    <div className="text-sm text-gray-900 dark:text-white">{u.username}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{u.email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                     {u.department_name || '-'}

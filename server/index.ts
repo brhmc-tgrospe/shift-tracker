@@ -212,13 +212,52 @@ app.get('/api/users/public', authenticateToken, async (req, res) => {
 });
 app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
-    const rows = await sql`
+    const user = (req as any).user;
+    const { search, role, department, sortBy = 'firstName', sortDir = 'asc' } = req.query;
+
+    let query = sql`
       SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
+      WHERE 1=1
     `;
+
+    if (user.role === 'Admin') {
+      query = sql`${query} AND u.role != 'Developer'`;
+    }
+
+    if (role && role !== 'All') {
+      query = sql`${query} AND u.role = ${role as string}`;
+    }
+
+    if (department && department !== 'All') {
+      query = sql`${query} AND d.name = ${department as string}`;
+    }
+
+    if (search) {
+      const searchStr = `%${search as string}%`;
+      query = sql`${query} AND (
+        u.username ILIKE ${searchStr} OR 
+        u."firstName" ILIKE ${searchStr} OR 
+        u."lastName" ILIKE ${searchStr} OR 
+        d.name ILIKE ${searchStr}
+      )`;
+    }
+
+    // Sorting
+    const allowedSortColumns: Record<string, string> = {
+      'firstName': 'u."firstName"',
+      'lastName': 'u."lastName"'
+    };
+    const sortColumn = allowedSortColumns[sortBy as string] || 'u."firstName"';
+    const sortDirection = sortDir === 'desc' ? 'DESC' : 'ASC';
+
+    query = sql`${query} ORDER BY ${sql.unsafe(sortColumn)} ${sql.unsafe(sortDirection)}`;
+
+    const rows = await query;
     res.json(rows);
   } catch (error) {
+    console.error('Error in GET /api/users:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
