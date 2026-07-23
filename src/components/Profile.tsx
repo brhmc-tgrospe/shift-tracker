@@ -139,8 +139,8 @@ export function Profile() {
               name="username"
               disabled={user.username_changed}
               className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg outline-none transition-colors dark:text-white ${user.username_changed
-                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800'
+                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
+                : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800'
                 }`}
               value={formData.username}
               onChange={handleChange}
@@ -223,7 +223,7 @@ export function Profile() {
                   type={showNewPassword ? "text" : "password"}
                   name="password"
                   minLength={6}
-                  placeholder="Leave blank to keep current"
+                  placeholder="at least 6 characters..."
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors dark:bg-gray-800 dark:text-white pr-10"
                   value={formData.password}
                   onChange={handleChange}
