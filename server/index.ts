@@ -102,7 +102,12 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   const tokenUser = (req as any).user;
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, department_id, username_changed FROM users WHERE id = ${tokenUser.id}`;
+    const rows = await sql`
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.id = ${tokenUser.id}
+    `;
     const user = rows[0];
     if (!user) return res.sendStatus(404);
     res.json(user);
@@ -114,9 +119,9 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 // Update own profile
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   const user = (req as any).user;
-  const { email, password, firstName, lastName, username } = req.body;
+  const { email, password, currentPassword, username } = req.body;
   try {
-    const userRow = await sql`SELECT username, username_changed FROM users WHERE id = ${user.id}`;
+    const userRow = await sql`SELECT username, username_changed, password FROM users WHERE id = ${user.id}`;
     if (!userRow.length) return res.status(404).json({ error: 'User not found' });
     
     let setUsernameChanged = false;
@@ -131,14 +136,29 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     }
 
     if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to change password.' });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, userRow[0].password);
+      if (!isMatch) {
+        return res.status(403).json({ error: 'Incorrect current password.' });
+      }
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null}, password = ${hash} WHERE id = ${user.id}`;
     } else {
-      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName} WHERE id = ${user.id}`;
+      await sql`UPDATE users SET username = ${newUsername}, username_changed = ${setUsernameChanged || userRow[0].username_changed}, email = ${email || null} WHERE id = ${user.id}`;
     }
     
     // Fetch updated user
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, username_changed FROM users WHERE id = ${user.id}`;
+    const rows = await sql`
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
+      FROM users u
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.id = ${user.id}
+    `;
     res.json(rows[0]);
   } catch (error: any) {
     if (error.code === '23505') {
