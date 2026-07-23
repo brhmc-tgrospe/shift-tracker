@@ -9,6 +9,7 @@ interface UsersTableProps {
   toggleSelectAll: (e: React.ChangeEvent<HTMLInputElement>) => void;
   toggleSelectUser: (id: number) => void;
   canModify: (targetUser: User) => boolean;
+  canDelete: (targetUser: User) => boolean;
   canImpersonate: (targetUser: User) => boolean;
   setEditingUser: (user: Partial<User> & { password?: string, reset_username_changed?: boolean } | null) => void;
   handleDelete: (id: number) => void;
@@ -26,6 +27,7 @@ export function UsersTable({
   toggleSelectAll,
   toggleSelectUser,
   canModify,
+  canDelete,
   canImpersonate,
   setEditingUser,
   handleDelete,
@@ -58,7 +60,7 @@ export function UsersTable({
                 <input
                   type="checkbox"
                   className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={users.filter(u => canModify(u)).length > 0 && selectedIds.size === users.filter(u => canModify(u)).length}
+                  checked={users.filter(u => canDelete(u)).length > 0 && selectedIds.size === users.filter(u => canDelete(u)).length}
                   onChange={toggleSelectAll}
                 />
               </th>
@@ -96,7 +98,7 @@ export function UsersTable({
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
                       checked={selectedIds.has(u.id)}
                       onChange={() => toggleSelectUser(u.id)}
-                      disabled={u.id === currentUser?.id || !canModify(u)}
+                      disabled={u.id === currentUser?.id || !canDelete(u)}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
@@ -126,7 +128,7 @@ export function UsersTable({
                           <Edit2 className="w-4 h-4 inline" /> <span className="sr-only">Edit</span>
                         </button>
 
-                        {u.id !== currentUser?.id && (
+                        {u.id !== currentUser?.id && canDelete(u) && (
                           <button onClick={() => handleDelete(u.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors mr-4">
                             <Trash2 className="w-4 h-4 inline" /> <span className="sr-only">Delete</span>
                           </button>

@@ -184,7 +184,7 @@ export function UsersView() {
   };
 
   const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedIds(e.target.checked ? new Set(users.filter(u => canModify(u)).map(u => u.id)) : new Set());
+    setSelectedIds(e.target.checked ? new Set(users.filter(u => canDelete(u)).map(u => u.id)) : new Set());
   };
 
   const toggleSelectUser = (id: number) => {
@@ -194,6 +194,13 @@ export function UsersView() {
   };
 
   const canModify = (targetUser: User) => {
+    if (user?.role === 'Developer') return true;
+    if (user?.role === 'Admin') return targetUser.role !== 'Developer' && targetUser.role !== 'Admin';
+    return false;
+  };
+
+  const canDelete = (targetUser: User) => {
+    if (targetUser.role === 'Developer') return false;
     if (user?.role === 'Developer') return true;
     if (user?.role === 'Admin') return targetUser.role !== 'Developer' && targetUser.role !== 'Admin';
     return false;
@@ -290,6 +297,7 @@ export function UsersView() {
         toggleSelectAll={toggleSelectAll}
         toggleSelectUser={toggleSelectUser}
         canModify={canModify}
+        canDelete={canDelete}
         canImpersonate={canImpersonate}
         setEditingUser={setEditingUser}
         handleDelete={handleDelete}

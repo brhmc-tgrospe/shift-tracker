@@ -326,10 +326,14 @@ app.delete('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
     
+    const targetUser = await sql`SELECT role FROM users WHERE id = ${id}`;
+    if (targetUser.length > 0 && targetUser[0].role === 'Developer') {
+      return res.status(403).json({ error: 'Developer accounts cannot be deleted via the application' });
+    }
+
     if (currentUser.role === 'Admin') {
-      const targetUser = await sql`SELECT role FROM users WHERE id = ${id}`;
-      if (targetUser.length > 0 && (targetUser[0].role === 'Admin' || targetUser[0].role === 'Developer')) {
-        return res.status(403).json({ error: 'Admins cannot delete Admin or Developer accounts' });
+      if (targetUser.length > 0 && targetUser[0].role === 'Admin') {
+        return res.status(403).json({ error: 'Admins cannot delete Admin accounts' });
       }
     }
 
