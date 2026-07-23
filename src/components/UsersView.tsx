@@ -269,7 +269,7 @@ export function UsersView() {
           )}
 
           <div className="flex items-center gap-2 ml-auto">
-            <button
+            {/* <button
               onClick={handleDownloadTemplate}
               title={`Valid departments: ${departments.map(d => d.name).join(', ')}`}
               className="px-4 py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-lg text-sm font-medium transition-colors"
@@ -279,7 +279,7 @@ export function UsersView() {
             <label className="cursor-pointer px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
               Import CSV
               <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-            </label>
+            </label> */}
             <button
               onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', role: 'User' })}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"

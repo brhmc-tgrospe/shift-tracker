@@ -309,7 +309,14 @@ export function AdminScheduleView() {
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const wasDark = document.documentElement.classList.contains('dark');
+              if (wasDark) document.documentElement.classList.remove('dark');
+              setTimeout(() => {
+                window.print();
+                if (wasDark) document.documentElement.classList.add('dark');
+              }, 100);
+            }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 print:hidden"
           >
             <Printer className="w-4 h-4" />

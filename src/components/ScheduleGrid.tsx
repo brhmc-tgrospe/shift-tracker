@@ -82,7 +82,7 @@ export function ScheduleGrid({
                   );
                 })}
                 {!hideTotalHours && (
-                  <th className="px-4 py-2 print:px-1 text-center font-bold text-gray-700 dark:text-gray-300 border-b border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky right-0 z-30 min-w-[80px]">
+                  <th className="px-4 py-2 print:hidden text-center font-bold text-gray-700 dark:text-gray-300 border-b border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky right-0 z-30 min-w-[80px]">
                     Total Hrs
                   </th>
                 )}
@@ -107,9 +107,14 @@ export function ScheduleGrid({
               }).map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
                   <tr className="bg-gray-100 dark:bg-gray-900/50">
-                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700">
+                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className={`px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 ${!hideTotalHours ? 'print:hidden' : ''}`}>
                       {dept}
                     </td>
+                    {!hideTotalHours && (
+                      <td colSpan={days.length + 1} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 hidden print:table-cell">
+                        {dept}
+                      </td>
+                    )}
                   </tr>
                   {deptUsers.map(u => {
                     let totalHours = 0;
@@ -188,7 +193,7 @@ export function ScheduleGrid({
                           );
                         })}
                         {!hideTotalHours && (
-                          <td className={`px-4 py-2 border-b border-l border-gray-200 dark:border-gray-700 text-center font-bold sticky right-0 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 ${totalHours === 176 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                          <td className={`px-4 py-2 print:hidden border-b border-l border-gray-200 dark:border-gray-700 text-center font-bold sticky right-0 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 ${totalHours === 176 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
                             }`}>
                             <div className="flex items-center justify-center gap-1">
                               {totalHours}h
@@ -209,7 +214,7 @@ export function ScheduleGrid({
       <div className={`mt-8 text-sm ${hideSignatories ? 'block' : 'hidden print:block'}`}>
         <div className="font-bold mb-2">LEGEND:</div>
         <div className="flex flex-wrap gap-4 mb-12">
-          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A').map(st => {
+          {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A' && s.type !== 'on-leave' && s.type !== 'absent').map(st => {
             const isActive = activeShiftTypes.has(st.type);
             return (
               <div
