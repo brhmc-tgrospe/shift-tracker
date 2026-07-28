@@ -22,6 +22,8 @@ export function AdminScheduleView() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   
+  const [autosaveTimer, setAutosaveTimer] = useState(30);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -92,6 +94,34 @@ export function AdminScheduleView() {
       setIsSaving(false);
     }
   }, [pendingChanges, token]);
+
+  useEffect(() => {
+    const hasPendingChanges = Object.keys(pendingChanges).length > 0;
+    
+    if (!hasPendingChanges) {
+      setAutosaveTimer(30);
+      return;
+    }
+
+    setAutosaveTimer(30);
+
+    const timer = setInterval(() => {
+      setAutosaveTimer((prev) => {
+        if (prev <= 1) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [pendingChanges]);
+
+  useEffect(() => {
+    if (autosaveTimer === 0 && Object.keys(pendingChanges).length > 0 && !isSaving) {
+      handleSave();
+    }
+  }, [autosaveTimer, pendingChanges, isSaving, handleSave]);
 
 
 
@@ -359,7 +389,12 @@ export function AdminScheduleView() {
             }`}
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Changes {Object.keys(pendingChanges).length > 0 && `(${Object.keys(pendingChanges).length})`}
+            {isSaving 
+              ? 'Saving...' 
+              : Object.keys(pendingChanges).length > 0 
+                ? `Save Changes (Autosaving in ${autosaveTimer}s)` 
+                : 'Save Changes'
+            }
           </button>
         </div>
       </div>
