@@ -13,6 +13,7 @@ import { RequestChangeModal } from './RequestChangeModal';
 import { SwapScheduleModal } from './SwapScheduleModal';
 import { ArrowRightLeft, FileEdit } from 'lucide-react';
 import toast from 'react-hot-toast';
+import logo from '../assets/shift-logo.png';
 
 export function ShiftTracker() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -169,8 +170,8 @@ export function ShiftTracker() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 dark:bg-blue-500 rounded-xl flex items-center justify-center shadow-sm text-white">
-                <Briefcase className="w-6 h-6" />
+              <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+                <img src={logo} alt="Shift Tracker Logo" className="w-full h-full object-contain p-1" />
               </div>
               <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Shift Tracker</h1>
             </div>

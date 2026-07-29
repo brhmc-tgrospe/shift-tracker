@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Building2, Calendar, Moon, Sun, User as UserIcon, LogOut, Menu, X, Activity, FileText } from 'lucide-react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
+import logo from '../assets/shift-logo.png';
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
@@ -49,7 +50,7 @@ export function AdminLayout() {
       <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} print:hidden`}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-lg">
-            <Users className="w-6 h-6" /> Admin Portal
+            <img src={logo} alt="Logo" className="w-8 h-8 object-contain drop-shadow-sm" /> Admin Portal
           </div>
           <button className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => setSidebarOpen(false)}>
             <X className="w-6 h-6" />
