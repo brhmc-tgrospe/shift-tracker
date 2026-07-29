@@ -64,16 +64,16 @@ export function ScheduleGrid({
         </div>
 
         <div className="overflow-auto max-h-full print:overflow-visible print:max-h-none">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-sm print:border print:border-black">
             <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-20 shadow-sm">
               <tr>
-                <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs">
+                <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs print:border print:border-black">
                   Employee
                 </th>
                 {days.map(day => {
                   const isWeekend = format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat';
                   return (
-                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90' : ''}`}>
+                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] print:border print:border-black ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90' : ''}`}>
                       <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
                       <div className={`text-sm print:text-xs ${isWeekend ? 'text-red-500' : ''}`}>
                         {format(day, 'd')}
@@ -107,11 +107,11 @@ export function ScheduleGrid({
               }).map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
                   <tr className="bg-gray-100 dark:bg-gray-900/50">
-                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className={`px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 ${!hideTotalHours ? 'print:hidden' : ''}`}>
+                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className={`px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 print:border print:border-black ${!hideTotalHours ? 'print:hidden' : ''}`}>
                       {dept}
                     </td>
                     {!hideTotalHours && (
-                      <td colSpan={days.length + 1} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 hidden print:table-cell">
+                      <td colSpan={days.length + 1} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 hidden print:table-cell print:border print:border-black">
                         {dept}
                       </td>
                     )}
@@ -121,7 +121,7 @@ export function ScheduleGrid({
 
                     return (
                       <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
-                        <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30">
+                        <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 print:border print:border-black">
                           <div className="flex items-center justify-between">
                             <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
                             {!readOnly && onDuplicate && (
@@ -168,7 +168,7 @@ export function ScheduleGrid({
                           return (
                             <td
                               key={dateStr}
-                              className={`group/cell relative border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors ${!readOnly ? 'cursor-pointer' : ''
+                              className={`group/cell relative border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors print:border print:border-black ${!readOnly ? 'cursor-pointer' : ''
                                 } ${isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
                                 } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
                               onMouseDown={() => !readOnly && onCellMouseDown?.(u.id, dateStr)}
