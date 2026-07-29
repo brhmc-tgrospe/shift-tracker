@@ -129,7 +129,7 @@ export function Login() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <motion.div variants={itemVariants} className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-200 ml-1">
-              Email or Username
+              Username
             </label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-400 transition-colors">
