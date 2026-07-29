@@ -45,26 +45,7 @@ app.use(async (req, res, next) => {
 setInterval(cleanupArchivedRequests, 24 * 60 * 60 * 1000);
 
 app.post('/api/auth/register', async (req, res) => {
-  const { username, email, password, firstName, lastName, department_id } = req.body;
-  if (!username || !password || !firstName || !lastName) {
-    return res.status(400).json({ error: 'Username, password, first name, and last name are required' });
-  }
-
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    const rows = await sql`
-      INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
-      VALUES (${username}, ${email || null}, ${hash}, ${firstName}, ${lastName}, 'User', ${department_id || null})
-      RETURNING id
-    `;
-    
-    res.status(201).json({ id: rows[0].id, message: 'User created successfully' });
-  } catch (error: any) {
-    if (error.code === '23505') {
-      return res.status(400).json({ error: 'Username or email already exists' });
-    }
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(403).json({ error: 'Public registration is disabled. Please contact an administrator to create an account.' });
 });
 
 app.get('/api/debug-db', (req, res) => {
