@@ -104,7 +104,7 @@ export function AdminLayout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 print:overflow-visible print:bg-white print:dark:bg-white print:text-black">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-gray-900 print:overflow-visible print:bg-white print:dark:bg-white print:text-black">
           <Outlet />
         </main>
       </div>

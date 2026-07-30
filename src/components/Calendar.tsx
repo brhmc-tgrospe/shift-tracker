@@ -59,11 +59,11 @@ export function Calendar({
           </button>
         </div>
         
-        <div className="flex items-center gap-2 min-w-[200px] justify-center">
+        <div className="flex items-center gap-1 sm:gap-2 flex-1 justify-center min-w-0 mx-1 sm:mx-2">
           <select 
             value={currentMonth}
             onChange={(e) => onChangeMonth(Number(e.target.value))}
-            className="text-xl font-bold text-gray-900 dark:text-white bg-transparent outline-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md p-1 pr-6"
+            className="text-base sm:text-xl font-bold text-gray-900 dark:text-white bg-transparent outline-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md p-1 pr-1 sm:pr-6"
           >
             {MONTH_NAMES.map((name, index) => (
               <option key={index} value={index}>{name}</option>
@@ -72,7 +72,7 @@ export function Calendar({
           <select
             value={currentYear}
             onChange={(e) => onChangeYear(Number(e.target.value))}
-            className="text-xl font-bold text-gray-900 dark:text-white bg-transparent outline-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md p-1 pr-6"
+            className="text-base sm:text-xl font-bold text-gray-900 dark:text-white bg-transparent outline-none cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md p-1 pr-1 sm:pr-6"
           >
             {Array.from({ length: 25 }, (_, i) => 2026 + i).map(year => (
               <option key={year} value={year}>{year}</option>
@@ -123,9 +123,9 @@ export function Calendar({
                 onClick={() => { if (!readOnly || allowNotesEdit) setSelectedDate(dateStr); }}
                 className={`group relative aspect-square flex flex-col items-center justify-center rounded-xl border transition-all duration-200 ${(!readOnly || allowNotesEdit) ? 'hover:scale-[1.02] active:scale-95 cursor-pointer' : 'cursor-default opacity-90'} ${shiftDef.colorClass}`}
               >
-                <span className="text-base font-medium">{day}</span>
+                <span className="text-sm sm:text-base font-medium leading-none">{day}</span>
                 {displayHours > 0 && (
-                  <span className="absolute bottom-1 right-1.5 text-[10px] font-bold opacity-70">
+                  <span className="text-[9px] sm:text-[10px] font-bold opacity-70 mt-0.5 sm:mt-1 leading-none">
                     {displayHours}h
                   </span>
                 )}

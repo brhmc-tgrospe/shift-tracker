@@ -39,6 +39,8 @@ export function UsersView() {
     fetchDepartments();
   }, []);
 
+
+
   const fetchUsers = async () => {
     try {
       const params = new URLSearchParams();
@@ -214,7 +216,7 @@ export function UsersView() {
 
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8 overflow-hidden">
       {error && (
         <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm mb-6 border border-red-100 dark:border-red-800">
           {error}
@@ -223,8 +225,8 @@ export function UsersView() {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">User Management</h2>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-grow sm:flex-grow-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
@@ -238,7 +240,7 @@ export function UsersView() {
           </div>
 
           <select
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white w-full sm:w-auto"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
           >
@@ -249,7 +251,7 @@ export function UsersView() {
           </select>
 
           <select
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white w-full sm:w-auto"
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
           >
@@ -262,27 +264,16 @@ export function UsersView() {
           {selectedIds.size > 0 && (
             <button
               onClick={handleBulkDelete}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="flex justify-center items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
             >
               <Trash2 className="w-4 h-4" /> Delete ({selectedIds.size})
             </button>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
-            {/* <button
-              onClick={handleDownloadTemplate}
-              title={`Valid departments: ${departments.map(d => d.name).join(', ')}`}
-              className="px-4 py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-lg text-sm font-medium transition-colors"
-            >
-              CSV Template
-            </button>
-            <label className="cursor-pointer px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
-              Import CSV
-              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-            </label> */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:ml-auto">
             <button
               onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', role: 'User' })}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" /> Add User
             </button>

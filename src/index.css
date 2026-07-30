@@ -13,3 +13,8 @@
     print-color-adjust: exact;
   }
 }
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
