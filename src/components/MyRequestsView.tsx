@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ScheduleRequest, SHIFTS, DayData } from '../types';
-import { Check, X, Pencil, Trash2 } from 'lucide-react';
+import { Check, X, Pencil, Trash2, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RequestChangeModal } from './RequestChangeModal';
 import { SwapScheduleModal } from './SwapScheduleModal';
+import { RequestDetailsModal } from './RequestDetailsModal';
 import { DatePicker } from './DatePicker';
 import { useModal } from '../context/ModalContext';
 
@@ -19,6 +20,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
   const [loading, setLoading] = useState(true);
   const [editingChange, setEditingChange] = useState<ScheduleRequest | null>(null);
   const [editingSwap, setEditingSwap] = useState<ScheduleRequest | null>(null);
+  const [viewingRequest, setViewingRequest] = useState<ScheduleRequest | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -364,6 +366,15 @@ export function MyRequestsView({ dayDataMap }: Props) {
                           </>
                         )}
 
+                        {/* View button */}
+                        <button
+                          onClick={() => setViewingRequest(req)}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                          title="View Request"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
                         {/* Edit button for pending requests */}
                         {canEdit && (
                           <button
@@ -401,13 +412,6 @@ export function MyRequestsView({ dayDataMap }: Props) {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )
-                        )}
-
-                        {/* Status label when no actions available */}
-                        {!isTarget && !canEdit && !canDelete && (
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">
-                            {req.admin_status === 'pending' ? 'Processing' : 'Done'}
-                          </span>
                         )}
                       </div>
                     </td>
@@ -449,7 +453,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
         )}
       </div>
 
-      {/* Edit modals */}
+      {/* Edit and View modals */}
       {editingChange && (
         <RequestChangeModal
           onClose={() => setEditingChange(null)}
@@ -464,6 +468,12 @@ export function MyRequestsView({ dayDataMap }: Props) {
           onSuccess={() => { setEditingSwap(null); fetchRequests(); }}
           editRequest={editingSwap}
           dayDataMap={dayDataMap}
+        />
+      )}
+      {viewingRequest && (
+        <RequestDetailsModal 
+          request={viewingRequest}
+          onClose={() => setViewingRequest(null)}
         />
       )}
     </div>
