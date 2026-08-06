@@ -2,6 +2,7 @@ import express from 'express';
 import sql from '../db.js';
 import { authenticateToken, requireAdminOrDeveloper } from '../auth.js';
 import { logActivity } from '../utils/activityLogger.js';
+import { executeShiftSwap } from '../services/shiftSwapService.js';
 
 const router = express.Router();
 
@@ -193,39 +194,13 @@ router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req,
            }
          }
       } else if (request.type === 'swap') {
-         const requesterRows = await sql`SELECT "firstName", "lastName" FROM users WHERE id = ${request.requester_id}`;
-         const targetRows = await sql`SELECT "firstName", "lastName" FROM users WHERE id = ${request.target_user_id}`;
-         
-         let requesterNote = '';
-         let targetNote = '';
-
-         if (requesterRows.length > 0 && targetRows.length > 0) {
-           const targetName = `${targetRows[0].firstName} ${targetRows[0].lastName}`;
-           const requesterName = `${requesterRows[0].firstName} ${requesterRows[0].lastName}`;
-           
-           requesterNote = `Swapped with ${targetName}`;
-           if (reasonNote) requesterNote += ` - ${reasonNote}`;
-           
-           targetNote = `Swapped with ${requesterName}`;
-         } else {
-           requesterNote = reasonNote;
-           targetNote = reasonNote;
-         }
-
-         for (const tDate of details.targetDates) {
-            await sql`
-                INSERT INTO shifts (user_id, date, shift, hours, notes)
-                VALUES (${request.requester_id}, ${tDate.date}, ${tDate.shift}, ${tDate.hours || 0}, ${requesterNote})
-                ON CONFLICT (user_id, date) DO UPDATE SET shift = EXCLUDED.shift, hours = EXCLUDED.hours, notes = EXCLUDED.notes
-            `;
-         }
-         for (const rDate of details.requesterDates) {
-            await sql`
-                INSERT INTO shifts (user_id, date, shift, hours, notes)
-                VALUES (${request.target_user_id}, ${rDate.date}, ${rDate.shift}, ${rDate.hours || 0}, ${targetNote})
-                ON CONFLICT (user_id, date) DO UPDATE SET shift = EXCLUDED.shift, hours = EXCLUDED.hours, notes = EXCLUDED.notes
-            `;
-         }
+          await executeShiftSwap(
+            request.requester_id,
+            request.target_user_id,
+            details,
+            request.reason || '',
+            sql
+          );
       }
     }
 
@@ -316,8 +291,7 @@ router.post('/bulk-delete', authenticateToken, async (req, res) => {
       await sql`
         DELETE FROM schedule_requests 
         WHERE id = ANY(${ids}) 
-        AND requester_id = ${user.id} 
-        AND admin_status != 'accepted'
+        AND requester_id = ${user.id}
       `;
     }
     res.json({ message: 'Requests deleted successfully' });
@@ -338,9 +312,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const request = rows[0];
     if (request.requester_id !== user.id && user.role !== 'Developer' && user.role !== 'Admin') {
       return res.status(403).json({ error: 'Not authorized' });
-    }
-    if (request.admin_status === 'accepted' && user.role !== 'Developer' && user.role !== 'Admin') {
-      return res.status(400).json({ error: 'Cannot delete an accepted request' });
     }
 
     if (user.role === 'Developer' || user.role === 'Admin') {

@@ -120,7 +120,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const deletableRequests = paginatedRequests.filter(req => req.requester_id === user?.id && req.admin_status !== 'accepted');
+    const deletableRequests = paginatedRequests.filter(req => req.requester_id === user?.id);
     if (e.target.checked) {
       const newSelected = new Set(selectedIds);
       deletableRequests.forEach(req => newSelected.add(req.id));
@@ -217,10 +217,10 @@ export function MyRequestsView({ dayDataMap }: Props) {
                   <input
                     type="checkbox"
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                    disabled={!paginatedRequests.some(req => req.requester_id === user?.id && req.admin_status !== 'accepted')}
+                    disabled={!paginatedRequests.some(req => req.requester_id === user?.id)}
                     checked={
-                      paginatedRequests.some(req => req.requester_id === user?.id && req.admin_status !== 'accepted') &&
-                      paginatedRequests.filter(req => req.requester_id === user?.id && req.admin_status !== 'accepted').every(req => selectedIds.has(req.id))
+                      paginatedRequests.some(req => req.requester_id === user?.id) &&
+                      paginatedRequests.filter(req => req.requester_id === user?.id).every(req => selectedIds.has(req.id))
                     }
                     onChange={handleSelectAll}
                   />
@@ -236,7 +236,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
                 const isRequester = req.requester_id === user?.id;
                 const isTarget = req.target_user_id === user?.id;
                 const canEdit = isRequester && req.admin_status === 'pending' && (req.type !== 'swap' || req.target_status === 'pending');
-                const canDelete = isRequester && req.admin_status !== 'accepted';
+                const canDelete = isRequester;
 
                 return (
                   <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
