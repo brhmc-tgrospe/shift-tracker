@@ -603,39 +603,78 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
   }
 });
 
-// Bulk upsert shifts (Admin/Developer only)
+// Bulk upsert shifts (Admin/Developer only) - Optimized with batch operations
 app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const { shifts } = req.body; // Array of { user_id, date, shift, hours, notes }
   if (!Array.isArray(shifts)) {
     return res.status(400).json({ error: 'Expected shifts array' });
   }
 
+  if (shifts.length === 0) {
+    return res.json({ message: 'No shifts to update' });
+  }
+
   const user = (req as any).user;
 
   try {
-    for (const s of shifts) {
-      const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${s.user_id} AND date = ${s.date}`;
-      const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
+    const toDelete = shifts.filter(s => s.shift === 'free' && s.hours === 0);
+    const toUpsert = shifts.filter(s => !(s.shift === 'free' && s.hours === 0));
 
-      if (s.shift === 'free' && s.hours === 0) {
-        await sql`DELETE FROM shifts WHERE user_id = ${s.user_id} AND date = ${s.date}`;
-      } else {
+    // Batch delete in chunks of 100
+    if (toDelete.length > 0) {
+      const chunkSize = 100;
+      for (let i = 0; i < toDelete.length; i += chunkSize) {
+        const chunk = toDelete.slice(i, i + chunkSize);
+        const userIds = chunk.map(s => s.user_id);
+        const dates = chunk.map(s => s.date);
+        await sql`
+          DELETE FROM shifts 
+          WHERE (user_id, date) IN (
+            SELECT * FROM unnest(${userIds}::int[], ${dates}::varchar[])
+          )
+        `;
+      }
+    }
+
+    // Batch upsert in chunks of 100
+    if (toUpsert.length > 0) {
+      const chunkSize = 100;
+      for (let i = 0; i < toUpsert.length; i += chunkSize) {
+        const chunk = toUpsert.slice(i, i + chunkSize);
+        const userIds = chunk.map(s => s.user_id);
+        const dates = chunk.map(s => s.date);
+        const shiftTypes = chunk.map(s => s.shift);
+        const hoursList = chunk.map(s => s.hours || 0);
+        const notesList = chunk.map(s => s.notes || '');
+
         await sql`
           INSERT INTO shifts (user_id, date, shift, hours, notes)
-          VALUES (${s.user_id}, ${s.date}, ${s.shift}, ${s.hours}, ${s.notes || ''})
+          SELECT 
+            u.user_id, u.date, u.shift, u.hours, u.notes
+          FROM unnest(
+            ${userIds}::int[],
+            ${dates}::varchar[],
+            ${shiftTypes}::varchar[],
+            ${hoursList}::numeric[],
+            ${notesList}::text[]
+          ) AS u(user_id, date, shift, hours, notes)
           ON CONFLICT (user_id, date) DO UPDATE SET
             shift = EXCLUDED.shift,
             hours = EXCLUDED.hours,
             notes = EXCLUDED.notes
         `;
       }
-      
-      if (oldShift !== s.shift) {
-        await logActivity('BULK_SHIFT_UPDATE', user.id, s.user_id, { date: s.date, oldShift, newShift: s.shift });
-      }
     }
+
+    await logActivity('BULK_SHIFT_UPDATE', user.id, null, {
+      totalUpdated: shifts.length,
+      upsertedCount: toUpsert.length,
+      deletedCount: toDelete.length
+    });
+
     res.json({ message: 'Bulk shifts updated successfully' });
   } catch (error: any) {
+    console.error('Error in bulk shift update:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -710,27 +749,47 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
     }
 
     if (newShifts.length > 0) {
-      for (const s of newShifts) {
-        const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${userId} AND date = ${s.date}`;
-        const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
+      const toDelete = newShifts.filter(s => s.shift === 'free' && s.hours === 0);
+      const toUpsert = newShifts.filter(s => !(s.shift === 'free' && s.hours === 0));
 
-        if (s.shift === 'free' && s.hours === 0) {
-          await sql`DELETE FROM shifts WHERE user_id = ${userId} AND date = ${s.date}`;
-        } else {
-          await sql`
-            INSERT INTO shifts (user_id, date, shift, hours, notes)
-            VALUES (${userId}, ${s.date}, ${s.shift}, ${s.hours}, ${s.notes || ''})
-            ON CONFLICT (user_id, date) DO UPDATE SET
-              shift = EXCLUDED.shift,
-              hours = EXCLUDED.hours,
-              notes = EXCLUDED.notes
-          `;
-        }
-        
-        if (oldShift !== s.shift) {
-          await logActivity('DUPLICATE_SHIFT_UPDATE', user.id, userId, { date: s.date, oldShift, newShift: s.shift });
-        }
+      if (toDelete.length > 0) {
+        const deleteDates = toDelete.map(s => s.date);
+        await sql`
+          DELETE FROM shifts 
+          WHERE user_id = ${userId} AND date = ANY(${deleteDates})
+        `;
       }
+
+      if (toUpsert.length > 0) {
+        const userIds = toUpsert.map(() => userId);
+        const dates = toUpsert.map(s => s.date);
+        const shiftTypes = toUpsert.map(s => s.shift);
+        const hoursList = toUpsert.map(s => s.hours || 0);
+        const notesList = toUpsert.map(s => s.notes || '');
+
+        await sql`
+          INSERT INTO shifts (user_id, date, shift, hours, notes)
+          SELECT 
+            u.user_id, u.date, u.shift, u.hours, u.notes
+          FROM unnest(
+            ${userIds}::int[],
+            ${dates}::varchar[],
+            ${shiftTypes}::varchar[],
+            ${hoursList}::numeric[],
+            ${notesList}::text[]
+          ) AS u(user_id, date, shift, hours, notes)
+          ON CONFLICT (user_id, date) DO UPDATE SET
+            shift = EXCLUDED.shift,
+            hours = EXCLUDED.hours,
+            notes = EXCLUDED.notes
+        `;
+      }
+
+      await logActivity('DUPLICATE_SHIFT_UPDATE', user.id, userId, {
+        sourceMonth,
+        targetMonth,
+        duplicatedCount: newShifts.length
+      });
     }
 
     res.json({ message: 'Shifts duplicated successfully' });

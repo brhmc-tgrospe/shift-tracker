@@ -122,13 +122,24 @@ export function ScheduleGrid({
                     return (
                       <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group print:bg-transparent">
                         <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 print:border-none print:bg-transparent">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px] flex items-center gap-1.5">
+                              <span>{u.firstName} {u.lastName}</span>
+                              {u.gender && (
+                                <span className={`text-[10px] px-1 py-0.2 rounded font-semibold print:hidden ${
+                                  u.gender === 'Female' 
+                                    ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' 
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                }`}>
+                                  {u.gender === 'Female' ? 'F' : 'M'}
+                                </span>
+                              )}
+                            </div>
                             {!readOnly && onDuplicate && (
                               <button
                                 onClick={() => onDuplicate(u.id)}
                                 title="Copy schedule from previous month"
-                                className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 print:hidden"
+                                className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 print:hidden flex-shrink-0"
                               >
                                 <Copy className="w-3.5 h-3.5" />
                               </button>

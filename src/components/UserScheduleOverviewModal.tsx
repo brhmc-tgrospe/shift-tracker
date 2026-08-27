@@ -15,6 +15,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Record<string, any>>({});
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
+  const [genderFilter, setGenderFilter] = useState<string>('All');
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +71,11 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
     return a.localeCompare(b);
   });
 
-  const filteredUsers = users.filter(u => departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter);
+  const filteredUsers = users.filter(u => {
+    const matchesDept = departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter;
+    const matchesGender = genderFilter === 'All' || u.gender === genderFilter;
+    return matchesDept && matchesGender;
+  });
   const groupedUsers = filteredUsers.reduce((acc, user) => {
     const dept = user.department_name || 'No Department';
     if (!acc[dept]) acc[dept] = [];
@@ -127,6 +132,18 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
                 className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white w-full sm:w-auto"
               >
                 {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 flex-grow sm:flex-grow-0">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">Gender:</label>
+              <select 
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white w-full sm:w-auto"
+              >
+                <option value="All">All Genders</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
               </select>
             </div>
             <button 

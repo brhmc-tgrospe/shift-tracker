@@ -5,7 +5,6 @@ import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS, ShiftType } from '../types';
 import { ScheduleGrid } from './ScheduleGrid';
 import { MonthlyScheduleGenerator } from '../utils/MonthlyScheduleGenerator';
-import { AutoGenerateScheduleModal } from './AutoGenerateScheduleModal';
 import toast from 'react-hot-toast';
 import { useModal } from '../context/ModalContext';
 
@@ -21,9 +20,7 @@ export function AdminScheduleView() {
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
   const [changeHistory, setChangeHistory] = useState<string[]>([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showAutoGenerateModal, setShowAutoGenerateModal] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
-  const [genderFilter, setGenderFilter] = useState<string>('All');
   
   const [autosaveTimer, setAutosaveTimer] = useState(30);
   
@@ -175,12 +172,8 @@ export function AdminScheduleView() {
   // Get unique departments for the filter
   const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort();
 
-  // Group users by department and filter by department & gender
-  const filteredUsers = users.filter(u => {
-    const matchesDept = departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter;
-    const matchesGender = genderFilter === 'All' || u.gender === genderFilter;
-    return matchesDept && matchesGender;
-  });
+  // Group users by department
+  const filteredUsers = users.filter(u => departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter);
   const groupedUsers = filteredUsers.reduce((acc, user) => {
     const dept = user.department_name || 'No Department';
     if (!acc[dept]) acc[dept] = [];
@@ -220,41 +213,26 @@ export function AdminScheduleView() {
     }
   };
 
-  const handleAutoGenerateClick = () => {
+  const handleAutoGenerate = async () => {
     const nonITUsers = users.filter(u => u.department_name !== 'IT Regular');
     if (nonITUsers.length === 0) {
       toast.error("No users found in non-IT departments to schedule.");
       return;
     }
-    setShowAutoGenerateModal(true);
-  };
 
-  const handlePerformGeneration = async (exemptEveningUserIds: number[]) => {
     const targetMonthStr = format(currentDate, 'yyyy-MM');
     const existingShifts = Object.values(shifts).filter((s: any) => 
-      s.date.startsWith(targetMonthStr)
+      s.date.startsWith(targetMonthStr) && nonITUsers.some(u => u.id === s.user_id)
     );
     
     if (existingShifts.length > 0) {
-      const confirm = await modal.confirm("There are already plotted schedules for this month. Do you want to generate a new schedule and overwrite them (you must still click Save to finalize)?");
+      const confirm = await modal.confirm("There are already plotted schedules for non-IT departments in this month. Do you want to generate a new schedule and overwrite them (you must still click Save to finalize)?");
       if (!confirm) return;
     }
 
     try {
-      const generated = await MonthlyScheduleGenerator.generate(
-        users,
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        { exemptEveningUserIds }
-      );
+      const generated = MonthlyScheduleGenerator.generate(nonITUsers, currentDate.getFullYear(), currentDate.getMonth());
       const newPending = { ...pendingChanges };
-      // Clear any prior pending changes for the target month first
-      Object.keys(newPending).forEach(key => {
-        if (newPending[key]?.date?.startsWith(targetMonthStr)) {
-          delete newPending[key];
-        }
-      });
-
       generated.forEach(s => {
         const key = `${s.userId}-${s.dateStr}`;
         newPending[key] = {
@@ -266,7 +244,6 @@ export function AdminScheduleView() {
         };
       });
       setPendingChanges(newPending);
-      toast.success("Schedule generated successfully! Review the plotted shifts and click 'Save Changes' to finalize.");
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -345,7 +322,7 @@ export function AdminScheduleView() {
 
           {user?.role === 'Developer' && (
             <button
-              onClick={handleAutoGenerateClick}
+              onClick={handleAutoGenerate}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-indigo-400 dark:border-indigo-700 print:hidden"
             >
               <Paintbrush className="w-4 h-4" />
@@ -458,19 +435,6 @@ export function AdminScheduleView() {
             {departments.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender:</label>
-          <select 
-            value={genderFilter}
-            onChange={(e) => setGenderFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          >
-            <option value="All">All Genders</option>
-            <option value="Female">Female</option>
-            <option value="Male">Male</option>
-          </select>
-        </div>
       </div>
 
       <ScheduleGrid
@@ -539,14 +503,6 @@ export function AdminScheduleView() {
           </div>
         </div>
       )}
-
-      <AutoGenerateScheduleModal
-        isOpen={showAutoGenerateModal}
-        onClose={() => setShowAutoGenerateModal(false)}
-        onGenerate={handlePerformGeneration}
-        nonItUsers={users.filter(u => u.department_name !== 'IT Regular')}
-        monthName={format(currentDate, 'MMMM yyyy')}
-      />
     </div>
   );
 }
