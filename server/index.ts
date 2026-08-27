@@ -73,7 +73,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName, username_changed: user.username_changed } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName, gender: user.gender, username_changed: user.username_changed } });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message, cause: error.cause ? String(error.cause) : undefined });
@@ -84,7 +84,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   const tokenUser = (req as any).user;
   try {
     const rows = await sql`
-      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.gender, u.role, u.department_id, u.username_changed, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
       WHERE u.id = ${tokenUser.id}
@@ -135,7 +135,7 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     
     // Fetch updated user
     const rows = await sql`
-      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.gender, u.role, u.department_id, u.username_changed, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
       WHERE u.id = ${user.id}
@@ -157,7 +157,7 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
   }
 
   try {
-    const rows = await sql`SELECT id, username, email, "firstName", "lastName", role, username_changed FROM users WHERE id = ${userId}`;
+    const rows = await sql`SELECT id, username, email, "firstName", "lastName", gender, role, username_changed FROM users WHERE id = ${userId}`;
     const user = rows[0];
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -187,7 +187,7 @@ app.post('/api/auth/impersonate', authenticateToken, requireDeveloper, async (re
 app.get('/api/public/users', authenticateToken, async (req, res) => {
   try {
     const rows = await sql`
-      SELECT u.id, u.username, u."firstName", u."lastName", u.department_id, d.name as department_name
+      SELECT u.id, u.username, u."firstName", u."lastName", u.gender, u.department_id, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
       WHERE u.role NOT IN ('Admin', 'Developer')
@@ -214,10 +214,10 @@ app.get('/api/users/public', authenticateToken, async (req, res) => {
 app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   try {
     const user = (req as any).user;
-    const { search, role, department, sortBy = 'firstName', sortDir = 'asc' } = req.query;
+    const { search, role, gender, department, sortBy = 'firstName', sortDir = 'asc' } = req.query;
 
     let query = sql`
-      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.role, u.department_id, u.username_changed, d.name as department_name
+      SELECT u.id, u.username, u.email, u."firstName", u."lastName", u.gender, u.role, u.department_id, u.username_changed, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
       WHERE 1=1
@@ -229,6 +229,10 @@ app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, re
 
     if (role && role !== 'All') {
       query = sql`${query} AND u.role = ${role as string}`;
+    }
+
+    if (gender && gender !== 'All') {
+      query = sql`${query} AND u.gender = ${gender as string}`;
     }
 
     if (department && department !== 'All') {
@@ -248,7 +252,8 @@ app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, re
     // Sorting
     const allowedSortColumns: Record<string, string> = {
       'firstName': 'u."firstName"',
-      'lastName': 'u."lastName"'
+      'lastName': 'u."lastName"',
+      'gender': 'u.gender'
     };
     const sortColumn = allowedSortColumns[sortBy as string] || 'u."firstName"';
     const sortDirection = sortDir === 'desc' ? 'DESC' : 'ASC';
@@ -265,7 +270,7 @@ app.get('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, re
 
 // Create user
 app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
-  const { username, email, password, firstName, lastName, role, department_id } = req.body;
+  const { username, email, password, firstName, lastName, gender, role, department_id } = req.body;
   const user = (req as any).user;
   
   if (user.role === 'Admin' && (role === 'Admin' || role === 'Developer')) {
@@ -273,10 +278,11 @@ app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, r
   }
 
   try {
+    const validGender = gender === 'Female' ? 'Female' : 'Male';
     const hash = await bcrypt.hash(password, 10);
     const rows = await sql`
-      INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
-      VALUES (${username}, ${email || null}, ${hash}, ${firstName}, ${lastName}, ${role || 'User'}, ${department_id || null})
+      INSERT INTO users (username, email, password, "firstName", "lastName", gender, role, department_id) 
+      VALUES (${username}, ${email || null}, ${hash}, ${firstName}, ${lastName}, ${validGender}, ${role || 'User'}, ${department_id || null})
       RETURNING id
     `;
     res.status(201).json({ id: rows[0].id, message: 'User created' });
@@ -288,11 +294,11 @@ app.post('/api/users', authenticateToken, requireAdminOrDeveloper, async (req, r
 // Update user
 app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const { id } = req.params;
-  const { username, email, password, firstName, lastName, role, department_id, reset_username_changed } = req.body;
+  const { username, email, password, firstName, lastName, gender, role, department_id, reset_username_changed } = req.body;
   const currentUser = (req as any).user;
   
   try {
-    const targetUser = await sql`SELECT role, username_changed FROM users WHERE id = ${id}`;
+    const targetUser = await sql`SELECT role, gender, username_changed FROM users WHERE id = ${id}`;
     
     if (currentUser.role === 'Admin') {
       if (targetUser.length > 0 && (targetUser[0].role === 'Admin' || targetUser[0].role === 'Developer')) {
@@ -303,13 +309,14 @@ app.put('/api/users/:id', authenticateToken, requireAdminOrDeveloper, async (req
       }
     }
 
+    const validGender = gender ? (gender === 'Female' ? 'Female' : 'Male') : (targetUser[0]?.gender || 'Male');
     const newUsernameChanged = reset_username_changed ? false : targetUser[0]?.username_changed;
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await sql`UPDATE users SET username = ${username}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, password = ${hash}, "firstName" = ${firstName}, "lastName" = ${lastName}, gender = ${validGender}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
     } else {
-      await sql`UPDATE users SET username = ${username}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
+      await sql`UPDATE users SET username = ${username}, email = ${email || null}, "firstName" = ${firstName}, "lastName" = ${lastName}, gender = ${validGender}, role = ${role}, department_id = ${department_id || null}, username_changed = ${newUsernameChanged} WHERE id = ${id}`;
     }
     res.json({ message: 'User updated' });
   } catch (error: any) {
@@ -380,6 +387,13 @@ app.post('/api/users/bulk', authenticateToken, requireAdminOrDeveloper, async (r
       else parsedRole = 'User'; // Fallback to User for unrecognized strings
     }
 
+    let parsedGender = 'Male';
+    if (u.gender) {
+      const lowerGender = u.gender.toLowerCase().trim();
+      if (lowerGender === 'female' || lowerGender === 'f') parsedGender = 'Female';
+      else parsedGender = 'Male';
+    }
+
     if (currentUser.role === 'Admin' && (parsedRole === 'Admin' || parsedRole === 'Developer')) {
       results.errors.push(`Row ${rowNum} (${u.username}): Admins cannot create Admin or Developer accounts.`);
       continue;
@@ -399,8 +413,8 @@ app.post('/api/users/bulk', authenticateToken, requireAdminOrDeveloper, async (r
     try {
       const hash = await bcrypt.hash(u.password, 10);
       await sql`
-        INSERT INTO users (username, email, password, "firstName", "lastName", role, department_id) 
-        VALUES (${u.username}, ${u.email || null}, ${hash}, ${u.firstName}, ${u.lastName}, ${parsedRole}, ${depId})
+        INSERT INTO users (username, email, password, "firstName", "lastName", gender, role, department_id) 
+        VALUES (${u.username}, ${u.email || null}, ${hash}, ${u.firstName}, ${u.lastName}, ${parsedGender}, ${parsedRole}, ${depId})
       `;
       results.success++;
     } catch (error: any) {

@@ -6,6 +6,7 @@ export interface User {
   role: string;
   firstName: string;
   lastName: string;
+  gender?: 'Male' | 'Female' | string;
   email: string;
   department_id?: number;
   department_name?: string;

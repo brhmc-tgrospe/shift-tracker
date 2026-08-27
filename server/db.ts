@@ -28,6 +28,7 @@ export const initDB = async () => {
         password TEXT NOT NULL,
         "firstName" VARCHAR(255) NOT NULL,
         "lastName" VARCHAR(255) NOT NULL,
+        gender VARCHAR(20) DEFAULT 'Male',
         role VARCHAR(50) DEFAULT 'User',
         department_id INTEGER,
         FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
@@ -50,6 +51,18 @@ export const initDB = async () => {
       await sql`ALTER TABLE users ADD COLUMN username_changed BOOLEAN DEFAULT FALSE`;
     } catch (e: any) {
       // Ignore if column already exists
+    }
+
+    try {
+      await sql`ALTER TABLE users ADD COLUMN gender VARCHAR(20) DEFAULT 'Male'`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
+
+    try {
+      await sql`UPDATE users SET gender = 'Male' WHERE gender IS NULL`;
+    } catch (e: any) {
+      // Ignore if fails
     }
 
     await sql`
@@ -144,7 +157,7 @@ export const initDB = async () => {
     const sysdev = await sql`SELECT id FROM users WHERE username = 'sysdev'`;
     if (sysdev.length === 0) {
       const hash = await bcrypt.hash('password123', 10);
-      await sql`INSERT INTO users (username, email, password, "firstName", "lastName", role) VALUES ('sysdev', 'sysdev@sys.com', ${hash}, 'System', 'Developer', 'Developer')`;
+      await sql`INSERT INTO users (username, email, password, "firstName", "lastName", gender, role) VALUES ('sysdev', 'sysdev@sys.com', ${hash}, 'System', 'Developer', 'Male', 'Developer')`;
       console.log('Seeded Developer Account');
     }
 

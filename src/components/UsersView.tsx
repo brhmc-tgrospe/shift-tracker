@@ -21,6 +21,7 @@ export function UsersView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+  const [genderFilter, setGenderFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [sortBy, setSortBy] = useState('firstName');
   const [sortDir, setSortDir] = useState('asc');
@@ -33,7 +34,7 @@ export function UsersView() {
 
   useEffect(() => {
     fetchUsers();
-  }, [debouncedSearchQuery, roleFilter, departmentFilter, sortBy, sortDir]);
+  }, [debouncedSearchQuery, roleFilter, genderFilter, departmentFilter, sortBy, sortDir]);
 
   useEffect(() => {
     fetchDepartments();
@@ -46,6 +47,7 @@ export function UsersView() {
       const params = new URLSearchParams();
       if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
       if (roleFilter !== 'All') params.append('role', roleFilter);
+      if (genderFilter !== 'All') params.append('gender', genderFilter);
       if (departmentFilter !== 'All') params.append('department', departmentFilter);
       params.append('sortBy', sortBy);
       params.append('sortDir', sortDir);
@@ -137,7 +139,7 @@ export function UsersView() {
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "username,email,password,firstName,lastName,role,department\n";
+    const csvContent = "username,email,password,firstName,lastName,gender,role,department\n";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -252,6 +254,16 @@ export function UsersView() {
 
           <select
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white w-full sm:w-auto"
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value)}
+          >
+            <option value="All">All Genders</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+
+          <select
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-colors dark:bg-gray-800 dark:text-white w-full sm:w-auto"
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
           >
@@ -272,7 +284,7 @@ export function UsersView() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:ml-auto">
             <button
-              onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', role: 'User' })}
+              onClick={() => setEditingUser({ username: '', email: '', firstName: '', lastName: '', gender: 'Male', role: 'User' })}
               className="flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" /> Add User
