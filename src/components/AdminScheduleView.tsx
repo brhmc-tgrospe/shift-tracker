@@ -297,7 +297,7 @@ export function AdminScheduleView() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full max-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full max-h-screen print:p-0 print:m-0 print:h-auto print:max-h-none print:block print:overflow-visible">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Schedule</h2>
         
@@ -345,7 +345,7 @@ export function AdminScheduleView() {
               setTimeout(() => {
                 window.print();
                 if (wasDark) document.documentElement.classList.add('dark');
-              }, 100);
+              }, 150);
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600 print:hidden"
           >

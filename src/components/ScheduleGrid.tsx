@@ -50,7 +50,7 @@ export function ScheduleGrid({
 
   return (
     <>
-      <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col relative select-none print:border-none print:shadow-none print:overflow-visible">
+      <div className="flex-grow bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col relative select-none print:border-none print:shadow-none print:overflow-visible print:block print:h-auto print:static">
         {isLoading && (
           <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10 print:hidden">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -63,17 +63,17 @@ export function ScheduleGrid({
           </h1>
         </div>
 
-        <div className="overflow-auto max-h-full print:overflow-visible print:max-h-none">
-          <table className="w-full border-collapse text-sm print:border print:border-black">
-            <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-20 shadow-sm">
+        <div className="overflow-auto max-h-full print:overflow-visible print:max-h-none print:block print:h-auto">
+          <table className="w-full border-collapse text-sm print:border-none">
+            <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0 z-20 shadow-sm print:shadow-none print:bg-transparent">
               <tr>
-                <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs print:border print:border-black">
+                <th className="px-4 py-2 print:px-1 text-left font-medium text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 sticky left-0 z-30 min-w-[200px] print:min-w-[120px] print:text-xs print:border-none print:bg-transparent">
                   Employee
                 </th>
                 {days.map(day => {
                   const isWeekend = format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat';
                   return (
-                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] print:border print:border-black ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90' : ''}`}>
+                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] print:border-none print:bg-transparent ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90 print:bg-transparent' : ''}`}>
                       <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
                       <div className={`text-sm print:text-xs ${isWeekend ? 'text-red-500' : ''}`}>
                         {format(day, 'd')}
@@ -106,12 +106,12 @@ export function ScheduleGrid({
                 return a[0].localeCompare(b[0]);
               }).map(([dept, deptUsers]) => (
                 <React.Fragment key={dept}>
-                  <tr className="bg-gray-100 dark:bg-gray-900/50">
-                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className={`px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 print:border print:border-black ${!hideTotalHours ? 'print:hidden' : ''}`}>
+                  <tr className="bg-gray-100 dark:bg-gray-900/50 print:bg-gray-100">
+                    <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className={`px-4 py-2 print:py-1 print:px-2 print:text-xs font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 print:border-none print:bg-gray-100 print:text-gray-900 ${!hideTotalHours ? 'print:hidden' : ''}`}>
                       {dept}
                     </td>
                     {!hideTotalHours && (
-                      <td colSpan={days.length + 1} className="px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 hidden print:table-cell print:border print:border-black">
+                      <td colSpan={days.length + 1} className="px-4 py-2 print:py-1 print:px-2 print:text-xs font-semibold text-gray-700 dark:text-gray-300 sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 hidden print:table-cell print:border-none print:bg-gray-100 print:text-gray-900">
                         {dept}
                       </td>
                     )}
@@ -120,8 +120,8 @@ export function ScheduleGrid({
                     let totalHours = 0;
 
                     return (
-                      <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group">
-                        <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 print:border print:border-black">
+                      <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 group print:bg-transparent">
+                        <td className="px-4 py-2 print:px-1 print:py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky left-0 z-10 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/30 print:border-none print:bg-transparent">
                           <div className="flex items-center justify-between">
                             <div className="font-medium text-gray-900 dark:text-white truncate print:text-xs print:w-[120px]">{u.firstName} {u.lastName}</div>
                             {!readOnly && onDuplicate && (
@@ -168,9 +168,9 @@ export function ScheduleGrid({
                           return (
                             <td
                               key={dateStr}
-                              className={`group/cell relative border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors print:border print:border-black ${!readOnly ? 'cursor-pointer' : ''
+                              className={`group/cell relative border-b border-gray-200 dark:border-gray-700 text-center p-1 print:p-0 transition-colors print:border-none ${!readOnly ? 'cursor-pointer' : ''
                                 } ${isPending ? 'opacity-80 border-dashed border-2 border-indigo-400' : ''
-                                } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80' : ''}`}
+                                } ${isWeekend && !activeData ? 'bg-gray-50 dark:bg-gray-800/80 print:bg-transparent' : ''}`}
                               onMouseDown={() => !readOnly && onCellMouseDown?.(u.id, dateStr)}
                               onMouseEnter={() => !readOnly && onCellMouseEnter?.(u.id, dateStr)}
                               onClick={() => !readOnly && onCellClick?.(u.id, dateStr)}
@@ -211,15 +211,15 @@ export function ScheduleGrid({
         </div>
       </div>
 
-      <div className={`mt-8 text-sm ${hideSignatories ? 'block' : 'hidden print:block'}`}>
-        <div className="font-bold mb-2">LEGEND:</div>
-        <div className="flex flex-wrap gap-4 mb-12">
+      <div className={`mt-8 text-sm ${hideSignatories ? 'block' : 'hidden print:block'} print:mt-4 signatories-container`}>
+        <div className="font-bold mb-2 print:text-xs">LEGEND:</div>
+        <div className="flex flex-wrap gap-4 print:gap-2 mb-12 print:mb-6">
           {AVAILABLE_SHIFTS.filter(s => s.type !== 'free' && s.type !== 'N/A' && s.type !== 'on-leave' && s.type !== 'absent').map(st => {
             const isActive = activeShiftTypes.has(st.type);
             return (
               <div
                 key={st.type}
-                className={`flex items-center gap-2 ${enableLegendFilter ? 'cursor-pointer hover:opacity-80 transition-opacity select-none' : ''} ${!isActive && enableLegendFilter ? 'opacity-40 grayscale' : ''}`}
+                className={`flex items-center gap-2 print:gap-1 print:text-xs ${enableLegendFilter ? 'cursor-pointer hover:opacity-80 transition-opacity select-none' : ''} ${!isActive && enableLegendFilter ? 'opacity-40 grayscale' : ''}`}
                 onClick={() => {
                   if (!enableLegendFilter) return;
                   setActiveShiftTypes(prev => {
@@ -230,7 +230,7 @@ export function ScheduleGrid({
                   });
                 }}
               >
-                <div className={`w-8 h-6 border flex items-center justify-center text-xs font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
+                <div className={`w-8 h-6 print:w-6 print:h-4 rounded flex items-center justify-center text-xs print:text-[9px] font-semibold ${st.colorClass.split(' ').filter(c => !c.includes('hover')).join(' ')}`}>
                   {st.type}
                 </div>
                 <span>- {st.label}</span>
@@ -240,16 +240,22 @@ export function ScheduleGrid({
         </div>
 
         {!hideSignatories && (
-          <div className="flex justify-between items-end mt-16">
+          <div className="flex justify-between items-end mt-16 print:mt-10 print:text-xs">
             <div>
-              <div className="mb-8">Prepared by:</div>
-              <div className="font-bold border-b border-black pb-1 mb-1 inline-block min-w-[250px]">VLADIMIR M . PIANDO, MIS</div>
-              <div>CMT III, Head, IHOMP-IT Office</div>
+              <div className="mb-2">Prepared by:</div>
+              <div className="h-14 print:h-12" />
+              <div className="border-t border-black min-w-[250px] print:min-w-[200px] pt-1 inline-block">
+                <div className="font-bold">VLADIMIR M . PIANDO, MIS</div>
+                <div>CMT III, Head, IHOMP-IT Office</div>
+              </div>
             </div>
             <div>
-              <div className="mb-8">Approved by:</div>
-              <div className="font-bold border-b border-black pb-1 mb-1 inline-block min-w-[350px]">ERIC RAYMOND N. RABORAR, MD, MPA - HEDM, MMHoA, FPS MS</div>
-              <div>Medical Center Chief II</div>
+              <div className="mb-2">Approved by:</div>
+              <div className="h-14 print:h-12" />
+              <div className="border-t border-black min-w-[350px] print:min-w-[280px] pt-1 inline-block">
+                <div className="font-bold">ERIC RAYMOND N. RABORAR, MD, MPA - HEDM, MMHoA, FPS MS</div>
+                <div>Medical Center Chief II</div>
+              </div>
             </div>
           </div>
         )}

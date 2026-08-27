@@ -40,7 +40,7 @@ export function AdminLayout() {
     : baseNavItems;
 
   return (
-    <div className="min-h-screen bg-gray-100/50 dark:bg-gray-900 transition-colors flex">
+    <div className="min-h-screen bg-gray-100/50 dark:bg-gray-900 transition-colors flex print:min-h-0 print:block print:bg-white">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-20 bg-gray-900/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -80,7 +80,7 @@ export function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:block print:w-full">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 transition-colors print:hidden">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
@@ -104,7 +104,7 @@ export function AdminLayout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-gray-900 print:overflow-visible print:bg-white print:dark:bg-white print:text-black">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-gray-900 print:overflow-visible print:bg-white print:dark:bg-white print:text-black print:block print:h-auto print:max-h-none">
           <Outlet />
         </main>
       </div>

@@ -5,12 +5,47 @@
 @media print {
   @page {
     size: 8.5in 13in landscape;
-    margin: 0.25in;
+    margin: 0.3in 0.25in;
   }
   
+  *, *::before, *::after {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  html, body, #root {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
   body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Remove all borders from table and its grid cells in print */
+  table, thead, tbody, tr, th, td {
+    border: none !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Prevent page-break cutting within rows and signatories */
+  tr, .signatories-container {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 
@@ -18,3 +53,4 @@ html, body {
   overflow-x: hidden;
   width: 100%;
 }
+
