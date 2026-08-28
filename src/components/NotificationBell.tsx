@@ -8,7 +8,8 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = React.useCallback(async () => {
+    if (!token) return;
     try {
       const res = await fetch('/api/requests/notifications', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -20,13 +21,37 @@ export function NotificationBell() {
     } catch (e) {
       console.error('Failed to fetch notifications', e);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
+    if (!token) return;
+
+    // Initial fetch on mount
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
-    return () => clearInterval(interval);
-  }, [token]);
+
+    // Fetch when tab becomes active / focused
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+
+    // Poll every 3 minutes ONLY while tab is actively visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 3 * 60 * 1000);
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [token, fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -54,10 +79,17 @@ export function NotificationBell() {
     }
   };
 
+  const toggleDropdown = () => {
+    if (!isOpen) {
+      fetchNotifications();
+    }
+    setIsOpen(!isOpen);
+  };
+
   return (
     <div className="relative">
       <button 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleDropdown}
         className="relative p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600"
         title="Notifications"
       >
