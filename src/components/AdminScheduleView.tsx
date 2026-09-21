@@ -343,7 +343,7 @@ export function AdminScheduleView() {
             </button>
           </div>
 
-          {user?.role === 'Developer' && (
+          {(user?.role === 'Developer' || user?.role === 'Admin') && (
             <button
               onClick={handleAutoGenerateClick}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-indigo-400 dark:border-indigo-700 print:hidden"
