@@ -217,6 +217,72 @@ export function ScheduleGrid({
                   })}
                 </React.Fragment>
               ))}
+              {/* Daily Coverage Summary */}
+              {!readOnly && (() => {
+                const allUsers = Object.values(groupedUsers).flat();
+                return (
+                  <>
+                    <tr className="bg-gray-100 dark:bg-gray-900/50 print:hidden">
+                      <td colSpan={days.length + (hideTotalHours ? 1 : 2)} className="px-4 py-1.5 font-semibold text-gray-700 dark:text-gray-300 text-xs sticky left-0 z-10 border-y border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900/50">
+                        Daily Shift Coverage
+                      </td>
+                    </tr>
+                    <tr className="print:hidden">
+                      <td className="px-4 py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20 sticky left-0 z-10 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                        12h-m
+                      </td>
+                      {days.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        let count = 0;
+                        allUsers.forEach(u => {
+                          const key = `${u.id}-${dateStr}`;
+                          const data = pendingChanges[key] || shifts[key];
+                          if (data?.shift === '12h-m') count++;
+                        });
+                        const isOk = count >= 2;
+                        return (
+                          <td key={dateStr} className={`border-b border-gray-200 dark:border-gray-700 text-center p-1`}>
+                            <div className={`w-full h-6 flex items-center justify-center rounded text-xs font-bold ${
+                              isOk ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                              'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                            }`}>
+                              {count}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {!hideTotalHours && <td className="border-b border-l border-gray-200 dark:border-gray-700 sticky right-0 bg-white dark:bg-gray-800"></td>}
+                    </tr>
+                    <tr className="print:hidden">
+                      <td className="px-4 py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20 sticky left-0 z-10 text-xs font-semibold text-blue-800 dark:text-blue-300">
+                        12h-e
+                      </td>
+                      {days.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        let count = 0;
+                        allUsers.forEach(u => {
+                          const key = `${u.id}-${dateStr}`;
+                          const data = pendingChanges[key] || shifts[key];
+                          if (data?.shift === '12h-e') count++;
+                        });
+                        const isOk = count === 2;
+                        return (
+                          <td key={dateStr} className={`border-b border-gray-200 dark:border-gray-700 text-center p-1`}>
+                            <div className={`w-full h-6 flex items-center justify-center rounded text-xs font-bold ${
+                              count === 0 ? 'text-gray-300 dark:text-gray-600' :
+                              isOk ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                              'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                            }`}>
+                              {count}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {!hideTotalHours && <td className="border-b border-l border-gray-200 dark:border-gray-700 sticky right-0 bg-white dark:bg-gray-800"></td>}
+                    </tr>
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>
