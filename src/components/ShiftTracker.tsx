@@ -3,7 +3,7 @@ import { Calendar } from './Calendar';
 import { Legend } from './Legend';
 import { Metrics } from './Metrics';
 import { DayData } from '../types';
-import { Briefcase, LogOut, User, Moon, Sun, ArrowLeft, Users } from 'lucide-react';
+import { Briefcase, LogOut, User, Moon, Sun, ArrowLeft, Users, Calendar as CalendarIcon, ClipboardList } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { UserScheduleOverviewModal } from './UserScheduleOverviewModal';
@@ -176,7 +176,7 @@ export function ShiftTracker() {
               <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Shift Tracker</h1>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden md:flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mr-4">
                 <button
                   onClick={() => setActiveTab('calendar')}
@@ -208,12 +208,42 @@ export function ShiftTracker() {
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
               <NotificationBell />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Hi, {user?.firstName}</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300 hidden sm:block">Hi, {user?.firstName}</span>
               <button onClick={() => navigate('/profile')} className="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Profile">
                 <User className="w-5 h-5" />
               </button>
               <button onClick={logout} className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Logout">
                 <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile view switcher */}
+          <div className="flex md:hidden pb-3">
+            <div className="grid grid-cols-2 w-full bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveTab('calendar')}
+                className={`flex items-center justify-center gap-2 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'calendar' 
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <CalendarIcon className="w-4 h-4" />
+                Calendar
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('requests')}
+                className={`flex items-center justify-center gap-2 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'requests' 
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                My Requests
               </button>
             </div>
           </div>
@@ -257,6 +287,12 @@ export function ShiftTracker() {
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 rounded-lg transition-colors font-medium text-sm"
                   >
                     <ArrowRightLeft className="w-4 h-4" /> Swap Schedule
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('requests')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:hover:bg-gray-700 dark:text-gray-300 rounded-lg transition-colors font-medium text-sm"
+                  >
+                    <ClipboardList className="w-4 h-4" /> View My Requests
                   </button>
                 </div>
               )}

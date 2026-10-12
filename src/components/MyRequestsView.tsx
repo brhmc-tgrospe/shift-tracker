@@ -8,6 +8,7 @@ import { SwapScheduleModal } from './SwapScheduleModal';
 import { RequestDetailsModal } from './RequestDetailsModal';
 import { DatePicker } from './DatePicker';
 import { useModal } from '../context/ModalContext';
+import { MyRequestCard } from './MyRequestCard';
 
 interface Props {
   dayDataMap: Record<string, DayData>;
@@ -173,10 +174,10 @@ export function MyRequestsView({ dayDataMap }: Props) {
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white">My Schedule Requests</h2>
       
       <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <DatePicker value={filterFrom} onChange={setFilterFrom} placeholder="Filter From" className="w-40" />
+        <div className="flex flex-wrap items-center gap-2">
+          <DatePicker value={filterFrom} onChange={setFilterFrom} placeholder="Filter From" className="w-36 sm:w-40" />
           <span className="text-gray-500">-</span>
-          <DatePicker value={filterTo} onChange={setFilterTo} placeholder="Filter To" className="w-40" />
+          <DatePicker value={filterTo} onChange={setFilterTo} placeholder="Filter To" className="w-36 sm:w-40" />
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Show</label>
@@ -209,7 +210,53 @@ export function MyRequestsView({ dayDataMap }: Props) {
       )}
 
       <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View: Card List */}
+        <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+          {paginatedRequests.some(req => req.requester_id === user?.id) && (
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                  disabled={!paginatedRequests.some(req => req.requester_id === user?.id)}
+                  checked={
+                    paginatedRequests.some(req => req.requester_id === user?.id) &&
+                    paginatedRequests.filter(req => req.requester_id === user?.id).every(req => selectedIds.has(req.id))
+                  }
+                  onChange={handleSelectAll}
+                />
+                Select All Deletable
+              </label>
+              <span>{filteredRequests.length} total request(s)</span>
+            </div>
+          )}
+
+          {paginatedRequests.map(req => (
+            <MyRequestCard
+              key={req.id}
+              request={req}
+              currentUserId={user?.id}
+              isSelected={selectedIds.has(req.id)}
+              onSelect={handleSelectRow}
+              onTargetAction={handleTargetAction}
+              onView={setViewingRequest}
+              onEdit={r => r.type === 'change' ? setEditingChange(r) : setEditingSwap(r)}
+              onDelete={handleDelete}
+              isConfirmingDelete={deleteConfirmId === req.id}
+              onSetConfirmDelete={setDeleteConfirmId}
+              formatDateLine={formatDateLine}
+            />
+          ))}
+
+          {filteredRequests.length === 0 && (
+            <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+              No requests found
+            </div>
+          )}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
