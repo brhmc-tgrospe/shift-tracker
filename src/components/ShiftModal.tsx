@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Lock, Globe } from 'lucide-react';
 import { ShiftType, SHIFTS, DayData } from '../types';
 
 interface ShiftModalProps {
@@ -13,6 +14,10 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
   const [shift, setShift] = useState<ShiftType>(initialData?.shift || 'free');
   const [hours, setHours] = useState<number | ''>(initialData?.hours ?? 0);
   const [notes, setNotes] = useState<string>(initialData?.notes || '');
+  const [publicNotes, setPublicNotes] = useState<string>(initialData?.public_notes || '');
+  const [activeNoteTab, setActiveNoteTab] = useState<'personal' | 'public'>(
+    !initialData?.notes?.trim() && initialData?.public_notes?.trim() ? 'public' : 'personal'
+  );
 
   const handleShiftChange = (newShift: ShiftType) => {
     const newHours = SHIFTS[newShift].defaultHours;
@@ -24,7 +29,8 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
         date,
         shift: newShift,
         hours: typeof newHours === 'number' ? newHours : 0,
-        notes: ''
+        notes: notes.trim(),
+        public_notes: publicNotes.trim()
       });
     }
   };
@@ -34,9 +40,13 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
       date,
       shift,
       hours: typeof hours === 'number' ? hours : 0,
-      notes: notes.trim()
+      notes: notes.trim(),
+      public_notes: publicNotes.trim()
     });
   };
+
+  const hasPersonalNote = notes.trim().length > 0;
+  const hasPublicNote = publicNotes.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -78,15 +88,67 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
           </div>
           
           {(notesOnly || shift !== 'free') && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add a note..."
-                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors"
-                rows={3}
-              />
+            <div className="space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveNoteTab('personal')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-md text-xs font-medium transition-all ${
+                    activeNoteTab === 'personal'
+                      ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Personal Note</span>
+                  {hasPersonalNote && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveNoteTab('public')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-md text-xs font-medium transition-all ${
+                    activeNoteTab === 'public'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Public Note</span>
+                  {hasPublicNote && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                  )}
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {activeNoteTab === 'personal'
+                  ? 'Only visible to you on your personal calendar.'
+                  : 'Visible to everyone in View All Schedules.'}
+              </p>
+
+              {activeNoteTab === 'personal' ? (
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add a personal note..."
+                  className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors"
+                  rows={3}
+                />
+              ) : (
+                <textarea
+                  value={publicNotes}
+                  onChange={(e) => setPublicNotes(e.target.value)}
+                  placeholder="Add a public note visible to everyone..."
+                  className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white transition-colors"
+                  rows={3}
+                />
+              )}
             </div>
           )}
         </div>

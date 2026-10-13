@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { format, addMonths, subMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Search } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { ScheduleGrid } from './ScheduleGrid';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface UserScheduleOverviewModalProps {
   onClose: () => void;
@@ -14,6 +14,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
   const [currentDate, setCurrentDate] = useState(new Date());
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Record<string, any>>({});
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   const [genderFilter, setGenderFilter] = useState<string>('All');
   
@@ -71,10 +72,19 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
     return a.localeCompare(b);
   });
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
   const filteredUsers = users.filter(u => {
     const matchesDept = departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter;
     const matchesGender = genderFilter === 'All' || u.gender === genderFilter;
-    return matchesDept && matchesGender;
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    const reverseFullName = `${u.lastName || ''} ${u.firstName || ''}`.toLowerCase();
+    const matchesSearch =
+      !normalizedQuery ||
+      fullName.includes(normalizedQuery) ||
+      reverseFullName.includes(normalizedQuery) ||
+      (u.username && u.username.toLowerCase().includes(normalizedQuery));
+    return matchesDept && matchesGender && matchesSearch;
   });
   const groupedUsers = filteredUsers.reduce((acc, user) => {
     const dept = user.department_name || 'No Department';
@@ -100,7 +110,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
         transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
         className="relative w-full max-w-7xl h-[90vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
       >
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 border-b border-gray-100 dark:border-gray-700 gap-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 sm:p-6 border-b border-gray-100 dark:border-gray-700 gap-4">
           <div className="flex items-center gap-4">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">All Schedules</h3>
             
@@ -123,9 +133,29 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
             </div>
           </div>
           
-          <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto">
+            <div className="relative flex-grow sm:w-60">
+              <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search employee name..."
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-9 pr-8 py-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white w-full transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2 flex-grow sm:flex-grow-0">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">Department:</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden xl:block">Department:</label>
               <select 
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
@@ -135,7 +165,7 @@ export function UserScheduleOverviewModal({ onClose }: UserScheduleOverviewModal
               </select>
             </div>
             <div className="flex items-center gap-2 flex-grow sm:flex-grow-0">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">Gender:</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden xl:block">Gender:</label>
               <select 
                 value={genderFilter}
                 onChange={(e) => setGenderFilter(e.target.value)}

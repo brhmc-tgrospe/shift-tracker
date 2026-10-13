@@ -133,12 +133,14 @@ export function AdminScheduleView() {
     if (!shiftInfo) return;
 
     const key = `${userId}-${dateStr}`;
+    const existingCell = pendingChanges[key] || shifts[key];
     const newShift = {
       user_id: userId,
       date: dateStr,
       shift: shiftInfo.type,
       hours: shiftInfo.defaultHours,
-      notes: ''
+      notes: existingCell?.notes || '',
+      public_notes: existingCell?.public_notes || ''
     };
 
     setPendingChanges(prev => ({
@@ -257,12 +259,14 @@ export function AdminScheduleView() {
 
       generated.forEach(s => {
         const key = `${s.userId}-${s.dateStr}`;
+        const existingCell = shifts[key];
         newPending[key] = {
           user_id: s.userId,
           date: s.dateStr,
           shift: s.shift,
           hours: s.hours,
-          notes: ''
+          notes: existingCell?.notes || '',
+          public_notes: existingCell?.public_notes || ''
         };
       });
       setPendingChanges(newPending);
@@ -285,12 +289,14 @@ export function AdminScheduleView() {
       days.forEach(d => {
         const dateStr = format(d, 'yyyy-MM-dd');
         const key = `${u.id}-${dateStr}`;
+        const existingCell = shifts[key];
         newPending[key] = {
           user_id: u.id,
           date: dateStr,
           shift: 'free',
           hours: 0,
-          notes: ''
+          notes: existingCell?.notes || '',
+          public_notes: existingCell?.public_notes || ''
         };
       });
     });

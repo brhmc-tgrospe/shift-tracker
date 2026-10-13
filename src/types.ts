@@ -33,6 +33,7 @@ export interface DayData {
   shift: ShiftType;
   hours: number;
   notes?: string;
+  public_notes?: string;
 }
 
 export interface ScheduleRequest {

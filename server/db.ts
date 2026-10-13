@@ -73,10 +73,17 @@ export const initDB = async () => {
         shift VARCHAR(50) NOT NULL,
         hours REAL NOT NULL,
         notes TEXT,
+        public_notes TEXT,
         UNIQUE(user_id, date),
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
     `;
+
+    try {
+      await sql`ALTER TABLE shifts ADD COLUMN public_notes TEXT`;
+    } catch (e: any) {
+      // Ignore if column already exists
+    }
 
     await sql`
       CREATE TABLE IF NOT EXISTS schedule_requests (

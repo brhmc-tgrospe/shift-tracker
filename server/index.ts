@@ -479,7 +479,7 @@ app.delete('/api/departments/:id', authenticateToken, requireAdminOrDeveloper, a
 app.get('/api/shifts', authenticateToken, async (req, res) => {
   const user = (req as any).user;
   try {
-    const rows = await sql`SELECT date, shift, hours, notes FROM shifts WHERE user_id = ${user.id}`;
+    const rows = await sql`SELECT date, shift, hours, notes, public_notes FROM shifts WHERE user_id = ${user.id}`;
     const dayDataMap: Record<string, any> = {};
     for (const shift of rows) {
       dayDataMap[shift.date] = shift;
@@ -493,7 +493,7 @@ app.get('/api/shifts', authenticateToken, async (req, res) => {
 app.get('/api/users/:id/shifts', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    const rows = await sql`SELECT date, shift, hours, notes FROM shifts WHERE user_id = ${id}`;
+    const rows = await sql`SELECT date, shift, hours, public_notes FROM shifts WHERE user_id = ${id}`;
     const dayDataMap: Record<string, any> = {};
     for (const shift of rows) {
       dayDataMap[shift.date] = shift;
@@ -509,7 +509,7 @@ app.get('/api/public/shifts', authenticateToken, async (req, res) => {
   const { month } = req.query; // YYYY-MM
   try {
     const rows = await sql`
-      SELECT s.user_id, s.date, s.shift, s.hours, s.notes 
+      SELECT s.user_id, s.date, s.shift, s.hours, s.public_notes 
       FROM shifts s
       JOIN users u ON s.user_id = u.id
       WHERE s.date LIKE ${month + '%'} AND u.role NOT IN ('Admin', 'Developer')
@@ -525,7 +525,7 @@ app.get('/api/shifts/all', authenticateToken, requireAdminOrDeveloper, async (re
   const { month } = req.query; // YYYY-MM
   try {
     const rows = await sql`
-      SELECT user_id, date, shift, hours, notes 
+      SELECT user_id, date, shift, hours, public_notes 
       FROM shifts 
       WHERE date LIKE ${month + '%'}
     `;
@@ -538,20 +538,32 @@ app.get('/api/shifts/all', authenticateToken, requireAdminOrDeveloper, async (re
 // Update notes ONLY for a specific shift (safe for standard users)
 app.put('/api/shifts/notes', authenticateToken, async (req, res) => {
   const user = (req as any).user;
-  const { date, notes } = req.body;
+  const { date, notes, public_notes } = req.body;
   
   if (!date) {
     return res.status(400).json({ error: 'Missing required field: date' });
   }
 
+  const cleanNotes = typeof notes === 'string' ? notes.trim() : '';
+  const cleanPublicNotes = typeof public_notes === 'string' ? public_notes.trim() : '';
+
   try {
-    // Upsert but ONLY for notes. If shift doesn't exist, we default to 'free' / 0 hours to hold the note.
-    await sql`
-      INSERT INTO shifts (user_id, date, shift, hours, notes)
-      VALUES (${user.id}, ${date}, 'free', 0, ${notes || ''})
-      ON CONFLICT (user_id, date) DO UPDATE SET
-        notes = EXCLUDED.notes
-    `;
+    const existing = await sql`SELECT shift, hours FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
+    const currentShift = existing.length > 0 ? existing[0].shift : 'free';
+    const currentHours = existing.length > 0 ? Number(existing[0].hours) : 0;
+
+    if (currentShift === 'free' && currentHours === 0 && !cleanNotes && !cleanPublicNotes) {
+      await sql`DELETE FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
+    } else {
+      // Upsert but ONLY for notes. If shift doesn't exist, we default to 'free' / 0 hours to hold the note.
+      await sql`
+        INSERT INTO shifts (user_id, date, shift, hours, notes, public_notes)
+        VALUES (${user.id}, ${date}, 'free', 0, ${cleanNotes}, ${cleanPublicNotes})
+        ON CONFLICT (user_id, date) DO UPDATE SET
+          notes = EXCLUDED.notes,
+          public_notes = EXCLUDED.public_notes
+      `;
+    }
     res.json({ message: 'Notes updated successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -561,7 +573,7 @@ app.put('/api/shifts/notes', authenticateToken, async (req, res) => {
 // Update or delete shift for current user
 app.post('/api/shifts', authenticateToken, async (req, res) => {
   const user = (req as any).user;
-  const { date, shift, hours, notes } = req.body;
+  const { date, shift, hours, notes, public_notes } = req.body;
   
   if (!date || !shift || hours === undefined) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -571,8 +583,11 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
     return res.status(403).json({ error: 'Users cannot directly edit their schedules. Please submit a schedule request instead.' });
   }
 
+  const cleanNotes = typeof notes === 'string' ? notes.trim() : '';
+  const cleanPublicNotes = typeof public_notes === 'string' ? public_notes.trim() : '';
+
   try {
-    if (shift === 'free' && hours === 0) {
+    if (shift === 'free' && hours === 0 && !cleanNotes && !cleanPublicNotes) {
       const oldRows = await sql`SELECT shift FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
       const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
       await sql`DELETE FROM shifts WHERE user_id = ${user.id} AND date = ${date}`;
@@ -585,12 +600,13 @@ app.post('/api/shifts', authenticateToken, async (req, res) => {
       const oldShift = oldRows.length > 0 ? oldRows[0].shift : 'free';
       
       await sql`
-        INSERT INTO shifts (user_id, date, shift, hours, notes)
-        VALUES (${user.id}, ${date}, ${shift}, ${hours}, ${notes || ''})
+        INSERT INTO shifts (user_id, date, shift, hours, notes, public_notes)
+        VALUES (${user.id}, ${date}, ${shift}, ${hours}, ${cleanNotes}, ${cleanPublicNotes})
         ON CONFLICT (user_id, date) DO UPDATE SET
           shift = EXCLUDED.shift,
           hours = EXCLUDED.hours,
-          notes = EXCLUDED.notes
+          notes = EXCLUDED.notes,
+          public_notes = EXCLUDED.public_notes
       `;
       
       if (oldShift !== shift) {
@@ -620,7 +636,7 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
     const toDelete = shifts.filter(s => s.shift === 'free' && s.hours === 0);
     const toUpsert = shifts.filter(s => !(s.shift === 'free' && s.hours === 0));
 
-    // Batch delete in chunks of 100
+    // Batch clear/delete in chunks of 100 (preserve rows that still hold personal or public notes)
     if (toDelete.length > 0) {
       const chunkSize = 100;
       for (let i = 0; i < toDelete.length; i += chunkSize) {
@@ -632,11 +648,20 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
           WHERE (user_id, date) IN (
             SELECT * FROM unnest(${userIds}::int[], ${dates}::varchar[])
           )
+          AND COALESCE(TRIM(notes), '') = ''
+          AND COALESCE(TRIM(public_notes), '') = ''
+        `;
+        await sql`
+          UPDATE shifts
+          SET shift = 'free', hours = 0
+          WHERE (user_id, date) IN (
+            SELECT * FROM unnest(${userIds}::int[], ${dates}::varchar[])
+          )
         `;
       }
     }
 
-    // Batch upsert in chunks of 100
+    // Batch upsert in chunks of 100 (preserve existing personal and public notes)
     if (toUpsert.length > 0) {
       const chunkSize = 100;
       for (let i = 0; i < toUpsert.length; i += chunkSize) {
@@ -660,8 +685,7 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
           ) AS u(user_id, date, shift, hours, notes)
           ON CONFLICT (user_id, date) DO UPDATE SET
             shift = EXCLUDED.shift,
-            hours = EXCLUDED.hours,
-            notes = EXCLUDED.notes
+            hours = EXCLUDED.hours
         `;
       }
     }
@@ -687,7 +711,7 @@ app.get('/api/dashboard/metrics', authenticateToken, requireAdminOrDeveloper, as
       SELECT 
         u.id, u.username, u."firstName", u."lastName", u.department_id, 
         d.name as department_name,
-        s.shift, s.hours, s.notes
+        s.shift, s.hours, s.public_notes
       FROM users u
       LEFT JOIN shifts s ON u.id = s.user_id AND s.date = ${today}
       LEFT JOIN departments d ON u.department_id = d.id
@@ -733,7 +757,7 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
     const daysInTargetMonth = new Date(targetYear, targetMonthNum, 0).getDate();
 
     const sourceShifts = await sql`
-      SELECT date, shift, hours, notes 
+      SELECT date, shift, hours
       FROM shifts 
       WHERE user_id = ${userId} AND date LIKE ${sourceMonth + '%'}
     `;
@@ -757,6 +781,13 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
         await sql`
           DELETE FROM shifts 
           WHERE user_id = ${userId} AND date = ANY(${deleteDates})
+            AND COALESCE(TRIM(notes), '') = ''
+            AND COALESCE(TRIM(public_notes), '') = ''
+        `;
+        await sql`
+          UPDATE shifts
+          SET shift = 'free', hours = 0
+          WHERE user_id = ${userId} AND date = ANY(${deleteDates})
         `;
       }
 
@@ -765,23 +796,20 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
         const dates = toUpsert.map(s => s.date);
         const shiftTypes = toUpsert.map(s => s.shift);
         const hoursList = toUpsert.map(s => s.hours || 0);
-        const notesList = toUpsert.map(s => s.notes || '');
 
         await sql`
           INSERT INTO shifts (user_id, date, shift, hours, notes)
           SELECT 
-            u.user_id, u.date, u.shift, u.hours, u.notes
+            u.user_id, u.date, u.shift, u.hours, ''
           FROM unnest(
             ${userIds}::int[],
             ${dates}::varchar[],
             ${shiftTypes}::varchar[],
-            ${hoursList}::numeric[],
-            ${notesList}::text[]
-          ) AS u(user_id, date, shift, hours, notes)
+            ${hoursList}::numeric[]
+          ) AS u(user_id, date, shift, hours)
           ON CONFLICT (user_id, date) DO UPDATE SET
             shift = EXCLUDED.shift,
-            hours = EXCLUDED.hours,
-            notes = EXCLUDED.notes
+            hours = EXCLUDED.hours
         `;
       }
 

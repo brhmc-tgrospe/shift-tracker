@@ -89,6 +89,16 @@ export function ScheduleGrid({
               </tr>
             </thead>
             <tbody>
+              {!isLoading && Object.keys(groupedUsers).length === 0 && (
+                <tr>
+                  <td
+                    colSpan={days.length + (hideTotalHours ? 1 : 2)}
+                    className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    No employees found matching your search or filters.
+                  </td>
+                </tr>
+              )}
               {(Object.entries(groupedUsers) as [string, User[]][]).sort((a, b) => {
                 const order = [
                   'IT Regular',
@@ -173,8 +183,8 @@ export function ScheduleGrid({
                           }
 
                           const isPending = !!pendingChanges[key];
-                          const hasNotes = activeData?.notes && activeData.notes.trim() !== '';
-                          const showNotesIndicator = isAdminOrDev && hasNotes;
+                          const hasPublicNotes = Boolean(activeData?.public_notes && activeData.public_notes.trim() !== '');
+                          const showNotesIndicator = hasPublicNotes;
 
                           return (
                             <td
@@ -194,7 +204,7 @@ export function ScheduleGrid({
                                   <>
                                     <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 dark:bg-indigo-400 rounded-full print:hidden shadow-sm" />
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/cell:block w-max max-w-[200px] bg-gray-900 dark:bg-gray-700 text-white text-xs rounded p-2 z-[60] shadow-lg text-left whitespace-normal break-words pointer-events-none">
-                                      {activeData.notes}
+                                      {activeData.public_notes}
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                                     </div>
                                   </>

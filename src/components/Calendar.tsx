@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { getDaysInMonth, getFirstDayOfMonth, formatYYYYMMDD, DAY_NAMES, MONTH_NAMES } from '../utils/date';
 import { DayData, SHIFTS } from '../types';
 import { ShiftModal } from './ShiftModal';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, Globe } from 'lucide-react';
 
 interface CalendarProps {
   currentYear: number;
@@ -116,6 +116,10 @@ export function Calendar({
             if (data && data.shift === 'on-leave') {
               displayHours = Math.max(displayHours, 8);
             }
+
+            const hasPersonalNote = Boolean(data?.notes?.trim());
+            const hasPublicNote = Boolean(data?.public_notes?.trim());
+            const hasAnyNote = hasPersonalNote || hasPublicNote;
             
             return (
               <button
@@ -129,11 +133,33 @@ export function Calendar({
                     {displayHours}h
                   </span>
                 )}
-                {data?.notes && (
+                {hasAnyNote && (
                   <>
-                    <MessageSquare className="absolute top-1.5 left-1.5 w-3.5 h-3.5 opacity-60" />
-                    <div className="absolute z-50 invisible group-hover:visible opacity-0 group-hover:opacity-100 bottom-[calc(100%+8px)] w-48 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-xs text-left rounded-lg p-2 shadow-xl transition-all duration-200 pointer-events-none break-words">
-                      {data.notes}
+                    <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5">
+                      {hasPersonalNote && (
+                        <MessageSquare className="w-3.5 h-3.5 opacity-60" />
+                      )}
+                      {hasPublicNote && (
+                        <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300 opacity-85" />
+                      )}
+                    </div>
+                    <div className="absolute z-50 invisible group-hover:visible opacity-0 group-hover:opacity-100 bottom-[calc(100%+8px)] w-52 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-xs text-left rounded-lg p-2.5 shadow-xl transition-all duration-200 pointer-events-none break-words space-y-1.5">
+                      {hasPersonalNote && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                            Personal Note
+                          </div>
+                          <div>{data?.notes}</div>
+                        </div>
+                      )}
+                      {hasPublicNote && (
+                        <div className={hasPersonalNote ? 'pt-1 border-t border-gray-700 dark:border-gray-300' : ''}>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 dark:text-indigo-600">
+                            Public Note
+                          </div>
+                          <div>{data?.public_notes}</div>
+                        </div>
+                      )}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100"></div>
                     </div>
                   </>

@@ -91,7 +91,10 @@ export function ShiftTracker() {
     // Optimistic UI update
     setDayDataMap(prev => {
       const next = { ...prev };
-      const hasNotes = data.notes && data.notes.trim() !== '';
+      const hasNotes = Boolean(
+        (data.notes && data.notes.trim() !== '') ||
+        (data.public_notes && data.public_notes.trim() !== '')
+      );
       if (data.shift === 'free' && data.hours === 0 && !hasNotes) {
         delete next[data.date];
       } else {
@@ -108,7 +111,11 @@ export function ShiftTracker() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ date: data.date, notes: data.notes })
+          body: JSON.stringify({
+            date: data.date,
+            notes: data.notes,
+            public_notes: data.public_notes
+          })
         });
       } catch (e) {
         console.error('Failed to update notes', e);
