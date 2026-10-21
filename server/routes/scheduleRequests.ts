@@ -146,14 +146,7 @@ router.put('/:id/target', authenticateToken, async (req, res) => {
 router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req, res) => {
   const user = (req as any).user;
   const { id } = req.params;
-  const { status, remark } = req.body; // 'accepted' or 'denied'
-
-  if (status !== 'accepted' && status !== 'denied') {
-    return res.status(400).json({ error: 'Invalid status' });
-  }
-  if (status === 'denied' && !remark) {
-    return res.status(400).json({ error: 'Remark is required when denying a request' });
-  }
+  const { status, remark, lineDecisions } = req.body; // 'accepted', 'denied', or granular lineDecisions
 
   try {
     const requestRows = await sql`SELECT * FROM schedule_requests WHERE id = ${id}`;
@@ -171,10 +164,117 @@ router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req,
        return res.status(400).json({ error: 'Cannot accept a swap that was denied by the target user' });
     }
 
-    // Apply shifts if accepted — save reason as notes on affected dates
+    const reasonNote = request.reason || '';
+    const details = { ...request.details };
+
+    // Case 1: Granular line-by-line decision for change requests
+    if (Array.isArray(lineDecisions) && lineDecisions.length > 0 && request.type === 'change') {
+      const hasDenied = lineDecisions.some(d => d.status === 'denied');
+      if (hasDenied && (!remark || !remark.trim())) {
+        return res.status(400).json({ error: 'Remark is required when denying any requested dates' });
+      }
+
+      const acceptedCount = lineDecisions.filter(d => d.status === 'accepted').length;
+      const deniedCount = lineDecisions.filter(d => d.status === 'denied').length;
+
+      let finalAdminStatus: 'accepted' | 'denied' | 'partially_accepted';
+      if (acceptedCount > 0 && deniedCount === 0) {
+        finalAdminStatus = 'accepted';
+      } else if (acceptedCount === 0 && deniedCount > 0) {
+        finalAdminStatus = 'denied';
+      } else {
+        finalAdminStatus = 'partially_accepted';
+      }
+
+      // Tag each update with its decision
+      if (details.updates) {
+        lineDecisions.forEach(d => {
+          if (details.updates[d.index]) {
+            details.updates[d.index].status = d.status;
+          }
+        });
+      } else if (details.dates) {
+        lineDecisions.forEach(d => {
+          if (details.dates[d.index]) {
+            details.dates[d.index].status = d.status;
+          }
+        });
+      }
+
+      // Apply shifts only for accepted lines
+      for (const d of lineDecisions) {
+        if (d.status === 'accepted') {
+          if (details.updates && details.updates[d.index]) {
+            const update = details.updates[d.index];
+            await sql`
+              INSERT INTO shifts (user_id, date, shift, hours, notes)
+              VALUES (${request.requester_id}, ${update.date}, ${update.requestedShift}, ${update.hours || 0}, ${reasonNote})
+              ON CONFLICT (user_id, date) DO UPDATE SET shift = EXCLUDED.shift, hours = EXCLUDED.hours, notes = EXCLUDED.notes
+            `;
+          } else if (details.dates && details.dates[d.index]) {
+            const reqDate = details.dates[d.index];
+            await sql`
+              INSERT INTO shifts (user_id, date, shift, hours, notes)
+              VALUES (${request.requester_id}, ${reqDate.date}, ${reqDate.shift}, ${reqDate.hours || 0}, ${reasonNote})
+              ON CONFLICT (user_id, date) DO UPDATE SET shift = EXCLUDED.shift, hours = EXCLUDED.hours, notes = EXCLUDED.notes
+            `;
+          }
+        }
+      }
+
+      await sql`
+        UPDATE schedule_requests 
+        SET admin_status = ${finalAdminStatus}, admin_remark = ${remark?.trim() || null}, details = ${JSON.stringify(details)}
+        WHERE id = ${id}
+      `;
+
+      // Notify requester
+      let msg = '';
+      if (finalAdminStatus === 'accepted') {
+        msg = `Your schedule change request has been accepted by Admin.`;
+      } else if (finalAdminStatus === 'denied') {
+        msg = `Your schedule change request has been denied by Admin.`;
+      } else {
+        msg = `Your schedule change request has been partially approved (${acceptedCount}/${lineDecisions.length} days) by Admin.`;
+      }
+
+      await sql`
+        INSERT INTO notifications (user_id, message)
+        VALUES (${request.requester_id}, ${msg})
+      `;
+
+      const actionName = finalAdminStatus === 'accepted'
+        ? 'REQUEST_ACCEPTED'
+        : finalAdminStatus === 'denied'
+        ? 'REQUEST_DENIED'
+        : 'REQUEST_PARTIALLY_ACCEPTED';
+
+      await logActivity(
+        actionName,
+        user.id,
+        request.requester_id,
+        { requestId: id, type: request.type, admin_status: finalAdminStatus, remark: remark?.trim(), acceptedCount, deniedCount }
+      );
+
+      return res.json({ message: 'Request updated', admin_status: finalAdminStatus });
+    }
+
+    // Case 2: Whole request accept / deny (e.g. Swaps or legacy fallback)
+    if (status !== 'accepted' && status !== 'denied') {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    if (status === 'denied' && (!remark || !remark.trim())) {
+      return res.status(400).json({ error: 'Remark is required when denying a request' });
+    }
+
+    if (details.updates) {
+      details.updates.forEach((u: any) => {
+        u.status = status;
+      });
+    }
+
+    // Apply shifts if accepted
     if (status === 'accepted') {
-      const details = request.details;
-      const reasonNote = request.reason || '';
       if (request.type === 'change') {
          if (details.updates) {
            for (const update of details.updates) {
@@ -206,7 +306,7 @@ router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req,
 
     await sql`
       UPDATE schedule_requests 
-      SET admin_status = ${status}, admin_remark = ${remark || null}
+      SET admin_status = ${status}, admin_remark = ${remark?.trim() || null}, details = ${JSON.stringify(details)}
       WHERE id = ${id}
     `;
 
@@ -228,7 +328,7 @@ router.put('/:id/admin', authenticateToken, requireAdminOrDeveloper, async (req,
       status === 'accepted' ? 'REQUEST_ACCEPTED' : 'REQUEST_DENIED',
       user.id,
       request.requester_id,
-      { requestId: id, type: request.type, remark }
+      { requestId: id, type: request.type, admin_status: status, remark: remark?.trim() }
     );
 
     res.json({ message: 'Request updated' });

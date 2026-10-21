@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Globe } from 'lucide-react';
 import { ShiftType, SHIFTS, DayData } from '../types';
+import { calculateRenderedHours } from '../utils/hours';
 
 interface ShiftModalProps {
   date: string;
@@ -11,8 +12,11 @@ interface ShiftModalProps {
 }
 
 export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: ShiftModalProps) {
+  const isInitiallyHoliday = initialData?.shift === 'holiday' || initialData?.hours === 20;
   const [shift, setShift] = useState<ShiftType>(initialData?.shift || 'free');
-  const [hours, setHours] = useState<number | ''>(initialData?.hours ?? 0);
+  const [hours, setHours] = useState<number | ''>(
+    initialData?.hours ?? calculateRenderedHours(initialData?.shift || 'free', isInitiallyHoliday)
+  );
   const [notes, setNotes] = useState<string>(initialData?.notes || '');
   const [publicNotes, setPublicNotes] = useState<string>(initialData?.public_notes || '');
   const [activeNoteTab, setActiveNoteTab] = useState<'personal' | 'public'>(
@@ -20,7 +24,8 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
   );
 
   const handleShiftChange = (newShift: ShiftType) => {
-    const newHours = SHIFTS[newShift].defaultHours;
+    const isHoliday = newShift === 'holiday' || isInitiallyHoliday;
+    const newHours = calculateRenderedHours(newShift, isHoliday);
     setShift(newShift);
     setHours(newHours);
     

@@ -18,7 +18,7 @@ export const SHIFTS: Record<ShiftType, ShiftDefinition> = {
   '12h-m': { type: '12h-m', label: '12h Morning', colorClass: 'bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800', defaultHours: 12 },
   '12h-e': { type: '12h-e', label: '12h Evening', colorClass: 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800', defaultHours: 12 },
   'off': { type: 'off', label: 'Day Off', colorClass: 'bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-100 border-rose-200 dark:border-rose-800', defaultHours: 0 },
-  'holiday': { type: 'holiday', label: 'Holiday', colorClass: 'bg-orange-500 dark:bg-orange-600 hover:bg-orange-600 dark:hover:bg-orange-700 text-white border-orange-600 dark:border-orange-700', defaultHours: 0 },
+  'holiday': { type: 'holiday', label: 'Holiday', colorClass: 'bg-orange-500 dark:bg-orange-600 hover:bg-orange-600 dark:hover:bg-orange-700 text-white border-orange-600 dark:border-orange-700', defaultHours: 8 },
   'on-leave': { type: 'on-leave', label: 'On-Leave', colorClass: 'bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-600 dark:border-blue-700', defaultHours: 8 },
   'N/A': { type: 'N/A', label: 'N/A', colorClass: 'bg-purple-100 dark:bg-purple-900/40 hover:bg-purple-200 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800', defaultHours: 0 },
   'absent': { type: 'absent', label: 'Absent', colorClass: 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600', defaultHours: 0 },
@@ -36,6 +36,16 @@ export interface DayData {
   public_notes?: string;
 }
 
+export type RequestAdminStatus = 'pending' | 'accepted' | 'denied' | 'partially_accepted';
+
+export interface ScheduleRequestUpdateItem {
+  date: string;
+  currentShift: string;
+  requestedShift: string;
+  hours?: number;
+  status?: 'pending' | 'accepted' | 'denied';
+}
+
 export interface ScheduleRequest {
   id: number;
   type: 'swap' | 'change';
@@ -45,11 +55,11 @@ export interface ScheduleRequest {
     dates?: DayData[]; // For 'change'
     requesterDates?: DayData[]; // For 'swap'
     targetDates?: DayData[]; // For 'swap'
-    updates?: { date: string, currentShift: string, requestedShift: string, hours?: number }[];
+    updates?: ScheduleRequestUpdateItem[];
   };
   reason: string;
   target_status?: 'pending' | 'accepted' | 'denied' | null;
-  admin_status: 'pending' | 'accepted' | 'denied';
+  admin_status: RequestAdminStatus;
   admin_remark?: string | null;
   created_at: string;
   requester_username?: string;

@@ -286,12 +286,19 @@ export function ScheduleRequestsAdminView() {
                       )}
                       <div className="flex items-center gap-1.5 text-xs">
                         <span className="text-gray-500 w-12">Admin:</span>
-                        <span className={`font-medium ${
+                        <span className={`font-semibold ${
                           req.admin_status === 'accepted' ? 'text-green-600 dark:text-green-400' :
                           req.admin_status === 'denied' ? 'text-red-600 dark:text-red-400' :
+                          req.admin_status === 'partially_accepted' ? 'text-amber-600 dark:text-amber-400' :
                           'text-orange-500'
                         }`}>
-                          {req.admin_status.toUpperCase()}
+                          {req.admin_status === 'partially_accepted'
+                            ? `PARTIALLY APPROVED${
+                                req.details.updates
+                                  ? ` (${req.details.updates.filter(u => u.status === 'accepted').length}/${req.details.updates.length})`
+                                  : ''
+                              }`
+                            : req.admin_status.toUpperCase()}
                         </span>
                       </div>
                     </div>

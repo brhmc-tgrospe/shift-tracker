@@ -87,12 +87,19 @@ export function RequestDetailsModal({ request, onClose }: RequestDetailsModalPro
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                 Admin Status
               </label>
-              <div className={`text-sm font-medium ${
+              <div className={`text-sm font-semibold ${
                 request.admin_status === 'accepted' ? 'text-green-600 dark:text-green-400' :
                 request.admin_status === 'denied' ? 'text-red-600 dark:text-red-400' :
+                request.admin_status === 'partially_accepted' ? 'text-amber-600 dark:text-amber-400' :
                 'text-orange-500'
               }`}>
-                {request.admin_status.toUpperCase()}
+                {request.admin_status === 'partially_accepted'
+                  ? `PARTIALLY APPROVED${
+                      request.details.updates
+                        ? ` (${request.details.updates.filter(u => u.status === 'accepted').length}/${request.details.updates.length})`
+                        : ''
+                    }`
+                  : request.admin_status.toUpperCase()}
               </div>
             </div>
           </div>

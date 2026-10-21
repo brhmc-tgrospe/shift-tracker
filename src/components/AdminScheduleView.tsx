@@ -8,6 +8,7 @@ import { MonthlyScheduleGenerator } from '../utils/MonthlyScheduleGenerator';
 import { AutoGenerateScheduleModal } from './AutoGenerateScheduleModal';
 import toast from 'react-hot-toast';
 import { useModal } from '../context/ModalContext';
+import { calculateRenderedHours } from '../utils/hours';
 
 // We need a palette of shift types (exclude 'on-leave' as requested)
 const AVAILABLE_SHIFTS = Object.values(SHIFTS).filter(s => s.type !== 'on-leave');
@@ -132,13 +133,18 @@ export function AdminScheduleView() {
     const shiftInfo = AVAILABLE_SHIFTS.find(s => s.type === shiftTypeId);
     if (!shiftInfo) return;
 
+    const isHoliday = shiftInfo.type === 'holiday' || Object.values({ ...shifts, ...pendingChanges }).some(
+      (s: any) => s.date === dateStr && s.shift === 'holiday'
+    );
+    const computedHours = calculateRenderedHours(shiftInfo.type, isHoliday);
+
     const key = `${userId}-${dateStr}`;
     const existingCell = pendingChanges[key] || shifts[key];
     const newShift = {
       user_id: userId,
       date: dateStr,
       shift: shiftInfo.type,
-      hours: shiftInfo.defaultHours,
+      hours: computedHours,
       notes: existingCell?.notes || '',
       public_notes: existingCell?.public_notes || ''
     };

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { DayData, SHIFTS, ShiftType } from '../types';
 import { MONTH_NAMES } from '../utils/date';
 import { Clock, Calendar as CalendarIcon, Briefcase, Activity } from 'lucide-react';
+import { calculateRenderedHours } from '../utils/hours';
 
 interface MetricsProps {
   currentYear: number;
@@ -23,14 +24,8 @@ export function Metrics({ currentYear, currentMonth, dayDataMap }: MetricsProps)
     const yearPrefix = `${currentYear}-`;
 
     Object.values(dayDataMap).forEach(data => {
-      let hoursToAdd = data.hours;
-      // Fallback for corrupted historical data where hours might be 0 but the shift type implies hours
-      if (hoursToAdd === 0 && data.shift !== 'free' && data.shift !== 'off' && data.shift !== 'holiday' && data.shift !== 'N/A') {
-        hoursToAdd = SHIFTS[data.shift]?.defaultHours || 0;
-      }
-      if (data.shift === 'on-leave') {
-        hoursToAdd = Math.max(hoursToAdd, 8);
-      }
+      const isHoliday = data.shift === 'holiday' || data.hours === 20;
+      const hoursToAdd = data.hours > 0 ? data.hours : calculateRenderedHours(data.shift, isHoliday);
 
       // Year calculation
       if (data.date.startsWith(yearPrefix)) {

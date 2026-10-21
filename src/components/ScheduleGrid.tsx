@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { Copy, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS } from '../types';
+import { getMonthlyHolidayDates, calculateRenderedHours } from '../utils/hours';
 
 const AVAILABLE_SHIFTS = Object.values(SHIFTS);
 
@@ -47,6 +48,11 @@ export function ScheduleGrid({
   const daysInMonth = getDaysInMonth(currentDate);
   const monthStart = startOfMonth(currentDate);
   const days = Array.from({ length: daysInMonth }, (_, i) => addDays(monthStart, i));
+
+  const holidayDates = useMemo(
+    () => getMonthlyHolidayDates(currentDate.getFullYear(), currentDate.getMonth(), { ...shifts, ...pendingChanges }),
+    [currentDate, shifts, pendingChanges]
+  );
 
   return (
     <>
@@ -164,6 +170,8 @@ export function ScheduleGrid({
                           let cellContent = '-';
                           let cellColor = '';
 
+                          const isHoliday = holidayDates.has(dateStr);
+
                           if (activeData) {
                             const shiftType = AVAILABLE_SHIFTS.find(s => s.type === activeData.shift) || SHIFTS['on-leave'];
                             if (shiftType && shiftType.type !== 'free') {
@@ -172,8 +180,12 @@ export function ScheduleGrid({
                               cellColor = isFilteredOut
                                 ? 'bg-gray-50/50 dark:bg-gray-800/30 text-gray-300 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 opacity-50'
                                 : shiftType.colorClass;
-                              totalHours += (activeData.hours || shiftType.defaultHours);
+                              totalHours += calculateRenderedHours(activeData.shift, isHoliday, activeData.hours);
+                            } else if (isHoliday) {
+                              totalHours += 8;
                             }
+                          } else if (isHoliday) {
+                            totalHours += 8;
                           }
 
                           const dayOfWeek = format(day, 'EEE');

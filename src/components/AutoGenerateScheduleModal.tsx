@@ -101,7 +101,7 @@ export function AutoGenerateScheduleModal({
               <li><strong>Gender Balance</strong>: Paired staff cannot both be female (at least one Male per slot).</li>
               <li><strong>Consecutive Blocks & Rest</strong>: All 12h shifts are in 2-day consecutive blocks; evening shifts are followed by a mandatory day off.</li>
               <li><strong>176 Monthly Hours</strong>: Balances weekdays with 8-hour shifts to reach exactly 176 hours per employee.</li>
-              <li><strong>Philippine Holidays</strong>: Automatically integrated and treated as non-working holidays with weekend 12h coverage.</li>
+              <li><strong>Philippine Holidays</strong>: Automatically integrated with +8h rendered credit (20h total for 12h holiday shifts, 8h credited for non-duty staff) balanced toward the 176h monthly requirement.</li>
             </ul>
           </div>
 

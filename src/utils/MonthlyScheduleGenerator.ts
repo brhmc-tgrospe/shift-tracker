@@ -1,5 +1,6 @@
 import { ShiftType } from '../types';
 import { getPhilippineHolidaysForMonthAsync, PhilippineHoliday } from './philippineHolidays';
+import { calculateRenderedHours } from './hours';
 
 export interface ScheduleResult {
   userId: number;
@@ -432,14 +433,23 @@ export class MonthlyScheduleGenerator {
     // PHASE 2: Exact 176 Hours Balancing with 8-Hour Weekday Shifts
     // ═══════════════════════════════════════════════════════════════════
     for (const u of userStates) {
-      let hours12h = 0;
+      let committedHours = 0;
       for (let d = 1; d <= daysInMonth; d++) {
-        if (u.schedule[d] === '12h-m' || u.schedule[d] === '12h-e') {
-          hours12h += 12;
+        if (isHoliday(d)) {
+          // On holidays: 12h shifts render 20h (12h + 8h); unassigned days will become 'holiday' (8h credit)
+          if (u.schedule[d] === '12h-m' || u.schedule[d] === '12h-e') {
+            committedHours += 20;
+          } else {
+            committedHours += 8;
+          }
+        } else {
+          if (u.schedule[d] === '12h-m' || u.schedule[d] === '12h-e') {
+            committedHours += 12;
+          }
         }
       }
 
-      const remainingHours = Math.max(0, 176 - hours12h);
+      const remainingHours = Math.max(0, 176 - committedHours);
       const needed8hShifts = Math.floor(remainingHours / 8);
 
       // Collect available weekday slots (null and not weekend/holiday)
@@ -503,8 +513,8 @@ export class MonthlyScheduleGenerator {
     for (const u of userStates) {
       let totalHours = 0;
       for (let d = 1; d <= daysInMonth; d++) {
-        if (u.schedule[d] === '12h-m' || u.schedule[d] === '12h-e') totalHours += 12;
-        else if (u.schedule[d] === '8h') totalHours += 8;
+        const isH = isHoliday(d);
+        totalHours += calculateRenderedHours(u.schedule[d], isH);
       }
       if (totalHours !== 176) return null; // Reject if hours don't match
     }
@@ -534,9 +544,8 @@ export class MonthlyScheduleGenerator {
     for (const u of userStates) {
       for (let d = 1; d <= daysInMonth; d++) {
         const shift = u.schedule[d]!;
-        let hours = 0;
-        if (shift === '12h-m' || shift === '12h-e') hours = 12;
-        else if (shift === '8h') hours = 8;
+        const isH = isHoliday(d);
+        const hours = calculateRenderedHours(shift, isH);
 
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         results.push({ userId: u.id, dateStr, shift, hours });
@@ -546,7 +555,8 @@ export class MonthlyScheduleGenerator {
     for (const u of itUserStates) {
       for (let d = 1; d <= daysInMonth; d++) {
         const shift = u.schedule[d]!;
-        const hours = shift === '8h' ? 8 : 0;
+        const isH = isHoliday(d);
+        const hours = calculateRenderedHours(shift, isH);
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         results.push({ userId: u.id, dateStr, shift, hours });
       }

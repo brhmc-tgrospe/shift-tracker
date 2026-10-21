@@ -302,7 +302,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
                     </td>
                     <td className="px-6 py-4">
                       {req.type === 'change' && (
-                        <div className="flex flex-col gap-1 text-sm">
+                        <div className="flex flex-col gap-1.5 text-sm">
                           {req.details.updates ? (
                             req.details.updates.map((u: any, i: number) => {
                               const safeDateObj = new Date(`${u.date}T12:00:00`);
@@ -310,8 +310,20 @@ export function MyRequestsView({ dayDataMap }: Props) {
                               const currentLabel = SHIFTS[u.currentShift as keyof typeof SHIFTS]?.label || u.currentShift;
                               const reqLabel = SHIFTS[u.requestedShift as keyof typeof SHIFTS]?.label || u.requestedShift;
                               return (
-                                <div key={i} className="text-gray-900 dark:text-gray-100">
-                                  <span className="font-semibold">{u.date} ({dayName}):</span> {currentLabel} &rarr; {reqLabel}
+                                <div key={i} className="flex flex-wrap items-center justify-between gap-2 text-gray-900 dark:text-gray-100 bg-gray-50/50 dark:bg-gray-800/40 p-1.5 rounded">
+                                  <span>
+                                    <span className="font-semibold">{u.date} ({dayName}):</span> {currentLabel} &rarr; {reqLabel}
+                                  </span>
+                                  {u.status === 'accepted' && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                      <Check className="w-3 h-3" /> Approved
+                                    </span>
+                                  )}
+                                  {u.status === 'denied' && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
+                                      <X className="w-3 h-3" /> Denied
+                                    </span>
+                                  )}
                                 </div>
                               );
                             })
@@ -374,14 +386,21 @@ export function MyRequestsView({ dayDataMap }: Props) {
                             </span>
                           </div>
                         )}
-                        <div className="flex items-center justify-between w-24">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="text-gray-500">Admin:</span>
-                          <span className={`font-medium ${
+                          <span className={`font-semibold ${
                             req.admin_status === 'accepted' ? 'text-green-600 dark:text-green-400' :
                             req.admin_status === 'denied' ? 'text-red-600 dark:text-red-400' :
+                            req.admin_status === 'partially_accepted' ? 'text-amber-600 dark:text-amber-400' :
                             'text-orange-500'
                           }`}>
-                            {req.admin_status.toUpperCase()}
+                            {req.admin_status === 'partially_accepted'
+                              ? `PARTIALLY APPROVED${
+                                  req.details.updates
+                                    ? ` (${req.details.updates.filter(u => u.status === 'accepted').length}/${req.details.updates.length})`
+                                    : ''
+                                }`
+                              : req.admin_status.toUpperCase()}
                           </span>
                         </div>
                       </div>

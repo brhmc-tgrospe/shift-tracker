@@ -3,6 +3,7 @@ import { getDaysInMonth, getFirstDayOfMonth, formatYYYYMMDD, DAY_NAMES, MONTH_NA
 import { DayData, SHIFTS } from '../types';
 import { ShiftModal } from './ShiftModal';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, Globe } from 'lucide-react';
+import { calculateRenderedHours } from '../utils/hours';
 
 interface CalendarProps {
   currentYear: number;
@@ -108,14 +109,9 @@ export function Calendar({
           {days.map(day => {
             const dateStr = formatYYYYMMDD(currentYear, currentMonth, day);
             const data = dayDataMap[dateStr];
+            const isHoliday = data?.shift === 'holiday';
             const shiftDef = data ? SHIFTS[data.shift] : SHIFTS['free'];
-            let displayHours = data ? data.hours : 0;
-            if (data && displayHours === 0 && data.shift !== 'free' && data.shift !== 'off' && data.shift !== 'holiday' && data.shift !== 'N/A') {
-              displayHours = SHIFTS[data.shift]?.defaultHours || 0;
-            }
-            if (data && data.shift === 'on-leave') {
-              displayHours = Math.max(displayHours, 8);
-            }
+            const displayHours = data ? (data.hours > 0 ? data.hours : calculateRenderedHours(data.shift, isHoliday)) : 0;
 
             const hasPersonalNote = Boolean(data?.notes?.trim());
             const hasPublicNote = Boolean(data?.public_notes?.trim());
