@@ -7,6 +7,7 @@ import sql, { initDB } from './db.js';
 import { JWT_SECRET, authenticateToken, requireDeveloper, requireAdminOrDeveloper } from './auth.js';
 import scheduleRequestsRouter from './routes/scheduleRequests.js';
 import activityLogsRouter from './routes/activityLogs.js';
+import holidaysRouter from './routes/holidays.js';
 import { logActivity } from './utils/activityLogger.js';
 
 const app = express();
@@ -828,6 +829,7 @@ app.post('/api/shifts/duplicate', authenticateToken, requireAdminOrDeveloper, as
 
 app.use('/api/requests', scheduleRequestsRouter);
 app.use('/api/activity-logs', activityLogsRouter);
+app.use('/api/holidays', holidaysRouter);
 
 // For Vercel Serverless Functions, we need to export the Express app
 export default app;

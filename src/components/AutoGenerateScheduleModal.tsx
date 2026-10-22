@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User } from '../context/AuthContext';
-import { X, Paintbrush, Moon, Sun, ShieldCheck, AlertCircle, Info } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { X, Paintbrush, Moon, Info, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { MonthlyScheduleGenerator, ValidationResult } from '../utils/MonthlyScheduleGenerator';
 
 interface AutoGenerateScheduleModalProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface AutoGenerateScheduleModalProps {
   onGenerate: (exemptEveningUserIds: number[]) => void;
   nonItUsers: User[];
   monthName: string;
+  year?: number;
+  month?: number; // 0-indexed
 }
 
 export function AutoGenerateScheduleModal({
@@ -16,12 +19,12 @@ export function AutoGenerateScheduleModal({
   onClose,
   onGenerate,
   nonItUsers,
-  monthName
+  monthName,
+  year,
+  month
 }: AutoGenerateScheduleModalProps) {
   const [exemptIds, setExemptIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState('');
-
-  if (!isOpen) return null;
 
   const toggleExempt = (userId: number) => {
     setExemptIds(prev => {
@@ -35,6 +38,18 @@ export function AutoGenerateScheduleModal({
     });
   };
 
+  const validation: ValidationResult | null = useMemo(() => {
+    if (year === undefined || month === undefined) return null;
+    return MonthlyScheduleGenerator.validateStaffPool(
+      nonItUsers,
+      year,
+      month,
+      Array.from(exemptIds)
+    );
+  }, [nonItUsers, year, month, exemptIds]);
+
+  if (!isOpen) return null;
+
   const filteredUsers = nonItUsers.filter(u => {
     const query = search.toLowerCase();
     const fullName = `${u.firstName} ${u.lastName}`.toLowerCase();
@@ -43,6 +58,7 @@ export function AutoGenerateScheduleModal({
   });
 
   const handleConfirm = () => {
+    if (validation && !validation.isValid) return;
     onGenerate(Array.from(exemptIds));
     onClose();
   };
@@ -93,17 +109,60 @@ export function AutoGenerateScheduleModal({
           <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 text-xs text-indigo-900 dark:text-indigo-200 space-y-1.5">
             <div className="flex items-center gap-2 font-semibold text-indigo-700 dark:text-indigo-300">
               <Info className="w-4 h-4" />
-              Automated Constraints & Rules
+              Automated Constraints & Compliance Rules
             </div>
             <ul className="list-disc pl-5 space-y-1 text-gray-600 dark:text-gray-300">
-              <li><strong>Shift Coverage</strong>: Exactly 2 staff for 12h Morning and 2 staff for 12h Evening each day.</li>
-              <li><strong>Department Diversity</strong>: Paired staff in any 12h shift slot must be from different departments.</li>
-              <li><strong>Gender Balance</strong>: Paired staff cannot both be female (at least one Male per slot).</li>
-              <li><strong>Consecutive Blocks & Rest</strong>: All 12h shifts are in 2-day consecutive blocks; evening shifts are followed by a mandatory day off.</li>
-              <li><strong>176 Monthly Hours</strong>: Balances weekdays with 8-hour shifts to reach exactly 176 hours per employee.</li>
-              <li><strong>Philippine Holidays</strong>: Automatically integrated with +8h rendered credit (20h total for 12h holiday shifts, 8h credited for non-duty staff) balanced toward the 176h monthly requirement.</li>
+              <li><strong>Dual 12h Coverage</strong>: Guaranteed &ge; 2 staff on 12h Evening (<code className="text-indigo-600 dark:text-indigo-400">12h-e</code>) AND &ge; 2 staff on 12h Morning (<code className="text-amber-600 dark:text-amber-400">12h-m</code>) on every single calendar day.</li>
+              <li><strong>Gender & Safety</strong>: Maximum 1 Female per shift; at least 1 Male on every daily Evening and Morning team (never 2 Females).</li>
+              <li><strong>Department Diversity</strong>: Paired staff in any 12h shift slot must belong to different departments.</li>
+              <li><strong>Consecutive Blocks & Rest</strong>: Evening shifts are in 2-day consecutive blocks followed by mandatory recovery (<code className="text-rose-600 dark:text-rose-400">off/free/holiday</code>).</li>
+              <li><strong>Morning Shift Flexibility</strong>: 12h morning shifts are flexibly assigned (with evening-exempt staff prioritized) while maintaining even 12h shift parity.</li>
+              <li><strong>Strict 176 Monthly Hours</strong>: Remaining open weekdays are filled with 8-hour shifts (<code className="text-emerald-600 dark:text-emerald-400">8h</code>) to hit exactly 176 hours per employee.</li>
+              <li><strong>Philippine Holidays</strong>: +8h automatic holiday credit (20h for 12h holiday shifts; 8h credit for non-duty staff).</li>
             </ul>
           </div>
+
+          {/* Upfront Validation & Quota Summary */}
+          {validation && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>
+                    Eligible Staff: <strong>{validation.eligibleNonExemptCount}</strong> • Required 12h Seats: <strong>{validation.total12hSeats}</strong> ({validation.totalEveningSeats} Eve + {validation.totalMorningSeats} Morn)
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                  Target: Exactly 176 Hours
+                </span>
+              </div>
+
+              {/* Validation Errors */}
+              {validation.errors.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-300">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    Cannot Generate Schedule
+                  </div>
+                  {validation.errors.map(err => (
+                    <p key={err} className="pl-6 text-rose-600 dark:text-rose-300">{err}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Validation Warnings */}
+              {validation.warnings.length > 0 && validation.errors.length === 0 && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    {validation.warnings.map(warn => (
+                      <p key={warn}>{warn}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Evening Shift Exemption Section */}
           <div className="space-y-3 pt-2">
@@ -185,8 +244,13 @@ export function AutoGenerateScheduleModal({
           </button>
           <button
             type="button"
+            disabled={validation ? !validation.isValid : false}
             onClick={handleConfirm}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm hover:shadow transition-all"
+            className={`flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl shadow-sm transition-all ${
+              validation && !validation.isValid
+                ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                : 'text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow'
+            }`}
           >
             <Paintbrush className="w-4 h-4" />
             Generate Schedule

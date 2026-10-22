@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SHIFTS, ScheduleRequest, DayData } from '../types';
+import { SHIFTS, ScheduleRequest, DayData, formatShiftLabel } from '../types';
 import { X, ArrowRightLeft, Search, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth, User } from '../context/AuthContext';
@@ -193,7 +193,7 @@ export function SwapScheduleModal({ onClose, onSuccess, dayDataMap, editRequest 
   const renderGiveRow = () => (
     <>
       {myDates.map((d, i) => {
-        const shiftLabel = d.shift ? (SHIFTS[d.shift as keyof typeof SHIFTS]?.label || d.shift) : 'No schedule';
+        const shiftLabel = formatShiftLabel(d.shift);
         return (
           <div key={`give-${i}`} className="flex gap-2 mb-2 items-start">
             <ShiftDatePickerRow
@@ -222,7 +222,7 @@ export function SwapScheduleModal({ onClose, onSuccess, dayDataMap, editRequest 
   const renderReceiveRow = () => (
     <>
       {targetDates.map((d, i) => {
-        const shiftLabel = d.shift ? (SHIFTS[d.shift as keyof typeof SHIFTS]?.label || d.shift) : 'No schedule';
+        const shiftLabel = formatShiftLabel(d.shift);
         return (
           <div key={`receive-${i}`} className="flex gap-2 mb-2 items-start">
             <ShiftDatePickerRow

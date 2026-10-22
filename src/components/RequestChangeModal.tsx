@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SHIFTS, DayData, ScheduleRequest, getUserRequestableShifts } from '../types';
+import { SHIFTS, DayData, ScheduleRequest, getUserRequestableShifts, formatShiftLabel } from '../types';
 import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -129,7 +129,7 @@ export function RequestChangeModal({ onClose, onSuccess, dayDataMap, editRequest
               Requested Changes
             </label>
             {updates.map((u, i) => {
-              const currentShiftLabel = u.currentShift ? (SHIFTS[u.currentShift as keyof typeof SHIFTS]?.label || u.currentShift) : 'No schedule';
+              const currentShiftLabel = formatShiftLabel(u.currentShift);
               return (
                 <div key={i} className="flex gap-2 items-start mb-2">
                   <ShiftDatePickerRow
@@ -140,7 +140,7 @@ export function RequestChangeModal({ onClose, onSuccess, dayDataMap, editRequest
                   <select
                     value={u.requestedShift}
                     onChange={e => updateRow(i, 'requestedShift', e.target.value)}
-                    className="w-32 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm px-3 py-2.5"
+                    className="w-36 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm px-3 py-2.5 font-medium shrink-0"
                   >
                     {getUserRequestableShifts()
                       .map(([k, v]) => (

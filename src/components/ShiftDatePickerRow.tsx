@@ -17,7 +17,10 @@ export function ShiftDatePickerRow({ date, onDateChange, shiftLabel }: ShiftDate
         required
         className="flex-1"
       />
-      <div className="w-28 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300 truncate">
+      <div
+        title={date ? shiftLabel : ''}
+        className="w-36 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300 truncate font-medium shrink-0"
+      >
         {date ? shiftLabel : 'Pick date'}
       </div>
     </>

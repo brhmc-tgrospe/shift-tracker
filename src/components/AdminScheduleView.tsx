@@ -276,9 +276,14 @@ export function AdminScheduleView() {
         };
       });
       setPendingChanges(newPending);
-      toast.success("Schedule generated successfully! Review the plotted shifts and click 'Save Changes' to finalize.");
+      const audit = MonthlyScheduleGenerator.getLastAudit();
+      if (audit && audit.isValid) {
+        toast.success(`Schedule generated! 100% compliant: Zero deficits (>= 2 on Evening & Morning) across ${audit.totalDays} days, exactly 176h per employee.`);
+      } else {
+        toast.success("Schedule generated successfully! Review the plotted shifts and click 'Save Changes' to finalize.");
+      }
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message, { duration: 6000 });
     }
   };
 
@@ -558,6 +563,8 @@ export function AdminScheduleView() {
         onGenerate={handlePerformGeneration}
         nonItUsers={users.filter(u => u.department_name !== 'IT Regular')}
         monthName={format(currentDate, 'MMMM yyyy')}
+        year={currentDate.getFullYear()}
+        month={currentDate.getMonth()}
       />
     </div>
   );

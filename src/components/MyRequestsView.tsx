@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ScheduleRequest, SHIFTS, DayData } from '../types';
+import { ScheduleRequest, SHIFTS, DayData, formatShiftDateLine } from '../types';
 import { Check, X, Pencil, Trash2, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RequestChangeModal } from './RequestChangeModal';
@@ -140,12 +140,7 @@ export function MyRequestsView({ dayDataMap }: Props) {
     setSelectedIds(newSelected);
   };
 
-  const formatDateLine = (d: any) => {
-    const safeDateObj = new Date(`${d.date}T12:00:00`);
-    const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = SHIFTS[d.shift as keyof typeof SHIFTS]?.defaultHours ?? 0;
-    return `${d.date} (${dayName}) | ${hours} Hours`;
-  };
+  const formatDateLine = (d: any) => formatShiftDateLine(d);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your requests...</div>;
 

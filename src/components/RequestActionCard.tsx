@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ScheduleRequest, SHIFTS, ScheduleRequestUpdateItem } from '../types';
+import { ScheduleRequest, SHIFTS, ScheduleRequestUpdateItem, formatShiftDateLine } from '../types';
 import { Check, X, CheckCheck, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -47,12 +47,7 @@ export function RequestActionCard({ request, token, onActionComplete, showAction
   // Selected checkboxes for batch operations
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
-  const formatDateLine = (d: any) => {
-    const safeDateObj = new Date(`${d.date}T12:00:00`);
-    const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
-    const hours = SHIFTS[d.shift as keyof typeof SHIFTS]?.defaultHours ?? 0;
-    return `${d.date} (${dayName}) | ${hours} Hours`;
-  };
+  const formatDateLine = (d: any) => formatShiftDateLine(d);
 
   const isPendingAdmin = request.admin_status === 'pending' && (request.type !== 'swap' || request.target_status === 'accepted');
 

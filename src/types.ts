@@ -28,6 +28,22 @@ export const getUserRequestableShifts = () => {
   return Object.entries(SHIFTS).filter(([k]) => k !== 'N/A' && k !== 'absent');
 };
 
+export const formatShiftLabel = (shiftKey: string | undefined | null): string => {
+  if (!shiftKey) return 'No schedule';
+  if (shiftKey === '12h-m') return '12h Morning';
+  if (shiftKey === '12h-e') return '12h Evening';
+  if (shiftKey === '12h') return '12h Shift';
+  const def = SHIFTS[shiftKey as keyof typeof SHIFTS];
+  return def?.label || shiftKey;
+};
+
+export const formatShiftDateLine = (d: { date: string; shift?: string; hours?: number }): string => {
+  const safeDateObj = new Date(`${d.date}T12:00:00`);
+  const dayName = safeDateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const shiftLabel = formatShiftLabel(d.shift);
+  return `${d.date} (${dayName}) | ${shiftLabel}`;
+};
+
 export interface DayData {
   date: string; // YYYY-MM-DD
   shift: ShiftType;

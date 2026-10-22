@@ -103,19 +103,76 @@ export function getLocalPhilippineHolidaysForYear(year: number): PhilippineHolid
   return holidays;
 }
 
+export const GCAL_PH_FEED_URL =
+  'https://calendar.google.com/calendar/ical/en.philippines%23holiday%40group.v.calendar.google.com/public/basic.ics';
+
 /**
- * Fetches Philippine holidays for a given year using live API with local fallback & memory cache.
+ * Parses iCalendar (.ics) format from Google Calendar Official Philippine Holidays feed.
+ * Only events with DESCRIPTION starting with 'Public holiday' are extracted, filtering out observances.
+ */
+export function parseGoogleCalendarIcs(icsText: string, targetYear: number): PhilippineHoliday[] {
+  const unfolded = icsText.replace(/\r?\n[ \t]/g, '');
+  const blocks = unfolded.split('BEGIN:VEVENT');
+  const local = getLocalPhilippineHolidaysForYear(targetYear);
+  const map = new Map<string, PhilippineHoliday>();
+
+  for (const block of blocks) {
+    if (!block.includes('END:VEVENT')) continue;
+    const descMatch = block.match(/DESCRIPTION:([^\r\n]+)/);
+    const desc = descMatch ? descMatch[1] : '';
+    // Only accept official public holidays, exclude general observances
+    if (!desc.startsWith('Public holiday')) continue;
+
+    const dtMatch = block.match(/DTSTART(?:;VALUE=DATE)?:(\d{4})(\d{2})(\d{2})/);
+    const sumMatch = block.match(/SUMMARY:([^\r\n]+)/);
+    if (!dtMatch || !sumMatch) continue;
+
+    const eventYear = parseInt(dtMatch[1], 10);
+    if (eventYear !== targetYear) continue;
+
+    const date = `${dtMatch[1]}-${dtMatch[2]}-${dtMatch[3]}`;
+    const name = sumMatch[1]
+      .replace(/\\,/g, ',')
+      .replace(/\\;/g, ';')
+      .replace(/\\\\/g, '\\')
+      .trim();
+
+    const localMatch = local.find(l => l.date === date);
+    const isSpecial = localMatch
+      ? localMatch.type === 'special'
+      : /eve|saints|souls|immaculate|black saturday|ninoy|special|lunar/i.test(name);
+
+    map.set(date, {
+      date,
+      name,
+      type: isSpecial ? 'special' : 'regular'
+    });
+  }
+
+  // Merge any local algorithmic holidays to ensure complete coverage
+  for (const l of local) {
+    if (!map.has(l.date)) {
+      map.set(l.date, l);
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Fetches Philippine holidays for a given year using Google Calendar official feed / API with local fallback & memory cache.
  */
 export async function fetchPhilippineHolidaysForYear(year: number): Promise<PhilippineHoliday[]> {
   if (holidaysCache.has(year)) {
     return holidaysCache.get(year)!;
   }
 
+  // 1. Try backend /api/holidays endpoint first (avoids browser CORS issues)
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/PH`, {
+    const response = await fetch(`/api/holidays?year=${year}`, {
       signal: controller.signal
     });
     clearTimeout(timeoutId);
@@ -123,29 +180,37 @@ export async function fetchPhilippineHolidaysForYear(year: number): Promise<Phil
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const apiHolidays: PhilippineHoliday[] = data.map((item: any) => ({
-          date: item.date,
-          name: item.name || item.localName,
-          type: item.types && item.types.includes('Optional') ? 'special' : 'regular'
-        }));
+        holidaysCache.set(year, data);
+        return data;
+      }
+    }
+  } catch {
+    // Non-fatal, proceed to direct feed fetch
+  }
 
-        // Merge with local list to ensure specialized Philippine non-working days (e.g., Dec 8, Dec 24)
-        const local = getLocalPhilippineHolidaysForYear(year);
-        const map = new Map<string, PhilippineHoliday>();
-        apiHolidays.forEach(h => map.set(h.date, h));
-        local.forEach(h => {
-          if (!map.has(h.date)) map.set(h.date, h);
-        });
+  // 2. Direct fetch from Google Calendar official feed (works in Node, SSR, or unblocked environments)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-        const merged = Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-        holidaysCache.set(year, merged);
-        return merged;
+    const response = await fetch(GCAL_PH_FEED_URL, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const icsText = await response.text();
+      const parsed = parseGoogleCalendarIcs(icsText, year);
+      if (parsed.length > 0) {
+        holidaysCache.set(year, parsed);
+        return parsed;
       }
     }
   } catch (error) {
-    console.warn('Live holiday API unavailable or timed out, using built-in Philippine calendar:', error);
+    console.warn('Google Calendar feed unavailable or timed out, using built-in Philippine calendar:', error);
   }
 
+  // 3. Fallback to built-in algorithmic Philippine calendar
   const localList = getLocalPhilippineHolidaysForYear(year);
   holidaysCache.set(year, localList);
   return localList;
