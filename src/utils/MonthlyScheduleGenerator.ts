@@ -78,6 +78,8 @@ export interface GenerationAudit {
   maleViolations: number;
   departmentViolations: number;
   hoursViolations: number;
+  maxConsecutiveOffDays: number;
+  offClusteringViolations: number;
   rows: DailyShiftAuditRow[];
   errors: string[];
 }
@@ -310,6 +312,28 @@ function solveEveningSlots(
 }
 
 /**
+ * Helper to count weekend morning shifts for an employee
+ */
+function getWeekendMorningCount(emp: EmployeeState, isWeekend: (d: number) => boolean): number {
+  let count = 0;
+  for (const [d, s] of emp.schedule.entries()) {
+    if (s === '12h-m' && isWeekend(d)) count++;
+  }
+  return count;
+}
+
+/**
+ * Helper to count morning shifts in a calendar week for an employee
+ */
+function getMorningCountInWeek(emp: EmployeeState, week: number, year: number, month: number): number {
+  let count = 0;
+  for (const [d, s] of emp.schedule.entries()) {
+    if (s === '12h-m' && getCalendarWeek(year, month, d) === week) count++;
+  }
+  return count;
+}
+
+/**
  * Checks if an employee can work a 12h-m morning shift on a given day
  * Strictly enforces single, non-consecutive days!
  */
@@ -317,7 +341,9 @@ function canWorkMorningOnDay(
   emp: EmployeeState,
   day: number,
   daysInMonth: number,
-  strictGap: boolean = true
+  strictGap: boolean = true,
+  isWeekend?: (d: number) => boolean,
+  weekendCap?: number
 ): boolean {
   if (emp.schedule.has(day)) return false;
   if (emp.lockedDays.has(day)) return false;
@@ -329,6 +355,11 @@ function canWorkMorningOnDay(
   // Cannot work 12h-m immediately adjacent to 12h-e
   if (day > 1 && emp.schedule.get(day - 1) === '12h-e') return false;
   if (day < daysInMonth && emp.schedule.get(day + 1) === '12h-e') return false;
+
+  // Cap weekend morning shifts per employee so weekdays don't get starved of shifts
+  if (isWeekend && weekendCap !== undefined && isWeekend(day)) {
+    if (getWeekendMorningCount(emp, isWeekend) >= weekendCap) return false;
+  }
 
   if (strictGap) {
     // 2-day gap preference from any other 12h shift
@@ -396,13 +427,22 @@ function solveMorningShifts(
     }
   }
 
+  const isWeekend = (d: number) => {
+    const day = new Date(year, month, d).getDay();
+    return day === 0 || day === 6;
+  };
+  const totalWeekendDays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(isWeekend).length;
+  const maxWeekendMorningQuota = Math.max(2, Math.ceil((totalWeekendDays * 2) / employees.length));
+  const getWeekendCap = (e: EmployeeState) => e.isExemptEvening ? 3 : maxWeekendMorningQuota;
+
   // Phase 2A: MRV Backtracking to assign 2 staff per day
   const unassignedMorningDays = new Set<number>(Array.from({ length: daysInMonth }, (_, i) => i + 1));
 
   function getValidMorningPairsForDay(day: number): [EmployeeState, EmployeeState][] {
+    const weekOfD = getCalendarWeek(year, month, day);
     const candidates = employees.filter(e => {
       if (getMorningCount(e) >= e.targetMorningDays) return false;
-      return canWorkMorningOnDay(e, day, daysInMonth, false);
+      return canWorkMorningOnDay(e, day, daysInMonth, false, isWeekend, getWeekendCap(e));
     });
 
     const pairs: [EmployeeState, EmployeeState][] = [];
@@ -425,13 +465,23 @@ function solveMorningShifts(
       const p1Exempt = (p1[0].isExemptEvening ? -150 : 0) + (p1[1].isExemptEvening ? -150 : 0);
       const p2Exempt = (p2[0].isExemptEvening ? -150 : 0) + (p2[1].isExemptEvening ? -150 : 0);
 
-      const gap1 = (canWorkMorningOnDay(p1[0], day, daysInMonth, true) ? -50 : 0) + (canWorkMorningOnDay(p1[1], day, daysInMonth, true) ? -50 : 0);
-      const gap2 = (canWorkMorningOnDay(p2[0], day, daysInMonth, true) ? -50 : 0) + (canWorkMorningOnDay(p2[1], day, daysInMonth, true) ? -50 : 0);
+      const gap1 = (canWorkMorningOnDay(p1[0], day, daysInMonth, true, isWeekend, getWeekendCap(p1[0])) ? -50 : 0) +
+                   (canWorkMorningOnDay(p1[1], day, daysInMonth, true, isWeekend, getWeekendCap(p1[1])) ? -50 : 0);
+      const gap2 = (canWorkMorningOnDay(p2[0], day, daysInMonth, true, isWeekend, getWeekendCap(p2[0])) ? -50 : 0) +
+                   (canWorkMorningOnDay(p2[1], day, daysInMonth, true, isWeekend, getWeekendCap(p2[1])) ? -50 : 0);
+
+      const tot12h_1A = getMorningCountInWeek(p1[0], weekOfD, year, month) + (p1[0].assigned12hWeeks.get(weekOfD) || 0);
+      const tot12h_1B = getMorningCountInWeek(p1[1], weekOfD, year, month) + (p1[1].assigned12hWeeks.get(weekOfD) || 0);
+      const tot12h_2A = getMorningCountInWeek(p2[0], weekOfD, year, month) + (p2[0].assigned12hWeeks.get(weekOfD) || 0);
+      const tot12h_2B = getMorningCountInWeek(p2[1], weekOfD, year, month) + (p2[1].assigned12hWeeks.get(weekOfD) || 0);
+
+      const weekPen1 = (tot12h_1A * 120) + (tot12h_1B * 120);
+      const weekPen2 = (tot12h_2A * 120) + (tot12h_2B * 120);
 
       const def1 = (p1[0].targetMorningDays - getMorningCount(p1[0])) + (p1[1].targetMorningDays - getMorningCount(p1[1]));
       const def2 = (p2[0].targetMorningDays - getMorningCount(p2[0])) + (p2[1].targetMorningDays - getMorningCount(p2[1]));
 
-      return (p1Mixed + p1Exempt + gap1 - def1) - (p2Mixed + p2Exempt + gap2 - def2);
+      return (p1Mixed + p1Exempt + gap1 + weekPen1 - def1) - (p2Mixed + p2Exempt + gap2 + weekPen2 - def2);
     });
 
     return pairs;
@@ -505,6 +555,12 @@ function solveMorningShifts(
         if (hasSameDept) score += 80;
         if (emp.user.gender === 'Female' && mornFemales >= mornMales) score += 60;
 
+        // Prefer weekdays in Phase 2B to absorb weekday hours and prevent weekday off-clustering
+        const dayOfWeek = new Date(year, month, d).getDay();
+        const isWknd = (dayOfWeek === 0 || dayOfWeek === 6);
+        if (isWknd) score += 30;
+        else score -= 30;
+
         candidateDays.push({ day: d, score });
       }
 
@@ -525,6 +581,8 @@ function solveMorningShifts(
 
 /**
  * STEP 3 & 4: Balance to 176h via 8h shifts & fill residual days
+ * Evenly scatters residual off days and 8h shifts across all calendar weeks,
+ * strictly preventing end-of-month dumping and eliminating 3+ consecutive off day clusters.
  */
 function balanceTo176HoursAndFill(
   employees: EmployeeState[],
@@ -532,15 +590,20 @@ function balanceTo176HoursAndFill(
   isHoliday: (d: number) => boolean,
   isWeekend: (d: number) => boolean
 ) {
+  // Pre-credit unassigned official holidays as 'holiday' (8h credit)
   for (const emp of employees) {
-    // Pre-credit unassigned official holidays as 'holiday' (8h credit)
     for (let d = 1; d <= daysInMonth; d++) {
       if (isHoliday(d) && !emp.schedule.has(d)) {
         emp.schedule.set(d, 'holiday');
       }
     }
+  }
 
-    // Calculate current hours
+  // Track global 8h headcount per weekday to ensure balanced staffing across all weeks
+  const daily8hCount = new Map<number, number>();
+  for (let d = 1; d <= daysInMonth; d++) daily8hCount.set(d, 0);
+
+  for (const emp of employees) {
     let currentHours = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const shift = emp.schedule.get(d);
@@ -553,6 +616,7 @@ function balanceTo176HoursAndFill(
     }
 
     const needed8hCount = hoursNeeded / 8;
+    const W = needed8hCount;
 
     // Collect available weekdays
     const openWeekdays: number[] = [];
@@ -562,23 +626,212 @@ function balanceTo176HoursAndFill(
       }
     }
 
-    if (openWeekdays.length < needed8hCount) {
-      throw new Error(`Not enough weekdays for user ${emp.user.username} to reach 176h (need ${needed8hCount}, open ${openWeekdays.length})`);
+    const M = openWeekdays.length;
+    if (M < needed8hCount) {
+      throw new Error(`Not enough weekdays for user ${emp.user.username} to reach 176h (need ${needed8hCount}, open ${M})`);
     }
 
-    // Assign needed 8h shifts
-    for (let i = 0; i < needed8hCount; i++) {
-      emp.schedule.set(openWeekdays[i], '8h');
+    const R = M - needed8hCount;
+    const chosenOffIndices = new Set<number>();
+
+    if (R > 0) {
+      if (W < R) {
+        // DUALITY: When W < R (high 12h shift density / small roster),
+        // select the W '8h' workdays and leave the rest as 'off'.
+        const chosenWorkIndices = new Set<number>();
+        const openDayToIndex = new Map<number, number>();
+        openWeekdays.forEach((d, idx) => openDayToIndex.set(d, idx));
+
+        // Pass 1: Mandatory Anti-Streak Breakers (target idealCenter of any potential >= 3 consecutive off days)
+        while (chosenWorkIndices.size < W) {
+          let maxStreak = 0;
+          let worstOpenDay = -1;
+
+          for (let d = 1; d <= daysInMonth; d++) {
+            const isOff = emp.schedule.get(d) === 'off' || (openDayToIndex.has(d) && !chosenWorkIndices.has(openDayToIndex.get(d)!));
+            if (!isOff) continue;
+
+            let streakLen = 0;
+            const openDaysInStreak: number[] = [];
+            for (let cur = d; cur <= daysInMonth; cur++) {
+              const curOff = emp.schedule.get(cur) === 'off' || (openDayToIndex.has(cur) && !chosenWorkIndices.has(openDayToIndex.get(cur)!));
+              if (curOff) {
+                streakLen++;
+                if (openDayToIndex.has(cur) && !chosenWorkIndices.has(openDayToIndex.get(cur)!)) {
+                  openDaysInStreak.push(cur);
+                }
+              } else {
+                break;
+              }
+            }
+
+            if (streakLen >= 3 && streakLen > maxStreak && openDaysInStreak.length > 0) {
+              maxStreak = streakLen;
+              const streakEnd = d + streakLen - 1;
+              const idealCenter = Math.floor((d + streakEnd) / 2);
+
+              openDaysInStreak.sort((dayA, dayB) => {
+                const diffA = Math.abs(dayA - idealCenter);
+                const diffB = Math.abs(dayB - idealCenter);
+                return diffA - diffB;
+              });
+              worstOpenDay = openDaysInStreak[0];
+            }
+          }
+
+          if (maxStreak >= 3 && worstOpenDay !== -1) {
+            chosenWorkIndices.add(openDayToIndex.get(worstOpenDay)!);
+          } else {
+            break;
+          }
+        }
+
+        // Pass 2: If we still need more 8h shifts, distribute using Bresenham stride
+        if (chosenWorkIndices.size < W) {
+          for (let j = 0; j < W; j++) {
+            if (chosenWorkIndices.size >= W) break;
+            const bucketStart = Math.floor((j * M) / W);
+            const bucketEnd = Math.floor(((j + 1) * M) / W) - 1;
+            const nominalCenter = Math.floor(((j + 0.5) * M) / W);
+
+            let bucketCovered = false;
+            for (let k = bucketStart; k <= bucketEnd; k++) {
+              if (chosenWorkIndices.has(k)) {
+                bucketCovered = true;
+                break;
+              }
+            }
+            if (bucketCovered) continue;
+
+            const candidates: { idx: number; score: number }[] = [];
+            for (let k = bucketStart; k <= bucketEnd; k++) {
+              if (chosenWorkIndices.has(k)) continue;
+              const d = openWeekdays[k];
+              let score = Math.abs(k - nominalCenter) * 20;
+
+              const cur8h = daily8hCount.get(d) || 0;
+              score += cur8h * 25;
+              candidates.push({ idx: k, score });
+            }
+
+            if (candidates.length > 0) {
+              candidates.sort((a, b) => a.score - b.score);
+              chosenWorkIndices.add(candidates[0].idx);
+            }
+          }
+
+          if (chosenWorkIndices.size < W) {
+            const remaining: { idx: number; score: number }[] = [];
+            for (let k = 0; k < M; k++) {
+              if (!chosenWorkIndices.has(k)) {
+                const d = openWeekdays[k];
+                remaining.push({ idx: k, score: daily8hCount.get(d) || 0 });
+              }
+            }
+            remaining.sort((a, b) => a.score - b.score);
+            for (const item of remaining) {
+              if (chosenWorkIndices.size >= W) break;
+              chosenWorkIndices.add(item.idx);
+            }
+          }
+        }
+
+        for (let k = 0; k < M; k++) {
+          if (!chosenWorkIndices.has(k)) {
+            chosenOffIndices.add(k);
+          }
+        }
+      } else {
+        // W >= R: Standard Bresenham stride distributing R 'off' days across M open weekdays
+        for (let i = 0; i < R; i++) {
+          const bucketStart = Math.floor((i * M) / R);
+          const bucketEnd = Math.floor(((i + 1) * M) / R) - 1;
+          const nominalCenter = Math.floor(((i + 0.5) * M) / R);
+
+          const candidates: { idx: number; score: number }[] = [];
+          for (let k = bucketStart; k <= bucketEnd; k++) {
+            if (chosenOffIndices.has(k)) continue;
+            const d = openWeekdays[k];
+
+            let wouldCreate3Off = false;
+            const s1 = emp.schedule.get(d - 1) || (chosenOffIndices.has(k - 1) && openWeekdays[k - 1] === d - 1 ? 'off' : undefined);
+            const s2 = emp.schedule.get(d - 2) || (chosenOffIndices.has(k - 2) && openWeekdays[k - 2] === d - 2 ? 'off' : undefined);
+            if (s1 === 'off' && s2 === 'off') wouldCreate3Off = true;
+
+            const next1 = emp.schedule.get(d + 1);
+            const next2 = emp.schedule.get(d + 2);
+            if (next1 === 'off' && next2 === 'off') wouldCreate3Off = true;
+            if (s1 === 'off' && next1 === 'off') wouldCreate3Off = true;
+
+            if (wouldCreate3Off) continue;
+
+            let score = Math.abs(k - nominalCenter) * 20;
+            // Rule 1: Post-12h-m Recovery Preference
+            if (d > 1 && emp.schedule.get(d - 1) === '12h-m') score -= 150;
+            // Daily 8h leveling
+            const cur8h = daily8hCount.get(d) || 0;
+            score -= cur8h * 25;
+            // Penalize adjacent off days to promote maximum scatter
+            if (s1 === 'off' || next1 === 'off') score += 60;
+
+            candidates.push({ idx: k, score });
+          }
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => a.score - b.score);
+            chosenOffIndices.add(candidates[0].idx);
+          } else {
+            // Global search for any index that doesn't create 3 off days
+            const globalCandidates: { idx: number; score: number }[] = [];
+            for (let k = 0; k < M; k++) {
+              if (chosenOffIndices.has(k)) continue;
+              const d = openWeekdays[k];
+
+              let wouldCreate3Off = false;
+              const s1 = emp.schedule.get(d - 1) || (chosenOffIndices.has(k - 1) && openWeekdays[k - 1] === d - 1 ? 'off' : undefined);
+              const s2 = emp.schedule.get(d - 2) || (chosenOffIndices.has(k - 2) && openWeekdays[k - 2] === d - 2 ? 'off' : undefined);
+              if (s1 === 'off' && s2 === 'off') wouldCreate3Off = true;
+
+              const next1 = emp.schedule.get(d + 1);
+              const next2 = emp.schedule.get(d + 2);
+              if (next1 === 'off' && next2 === 'off') wouldCreate3Off = true;
+              if (s1 === 'off' && next1 === 'off') wouldCreate3Off = true;
+
+              if (wouldCreate3Off) continue;
+              globalCandidates.push({ idx: k, score: Math.abs(k - nominalCenter) });
+            }
+
+            if (globalCandidates.length > 0) {
+              globalCandidates.sort((a, b) => a.score - b.score);
+              chosenOffIndices.add(globalCandidates[0].idx);
+            } else {
+              for (let k = bucketStart; k <= bucketEnd; k++) {
+                if (!chosenOffIndices.has(k)) {
+                  chosenOffIndices.add(k);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (let k = 0; k < M; k++) {
+      const d = openWeekdays[k];
+      if (chosenOffIndices.has(k)) {
+        emp.schedule.set(d, 'off');
+      } else {
+        emp.schedule.set(d, '8h');
+        daily8hCount.set(d, (daily8hCount.get(d) || 0) + 1);
+      }
     }
 
     // Fill residual days: weekends -> 'free', weekdays -> 'off'
     for (let d = 1; d <= daysInMonth; d++) {
       if (!emp.schedule.has(d)) {
-        if (isWeekend(d)) {
-          emp.schedule.set(d, 'free');
-        } else {
-          emp.schedule.set(d, 'off');
-        }
+        if (isWeekend(d)) emp.schedule.set(d, 'free');
+        else emp.schedule.set(d, 'off');
       }
     }
 
@@ -590,6 +843,76 @@ function balanceTo176HoursAndFill(
     emp.totalRenderedHours = total;
     if (total !== 176) {
       throw new Error(`User ${emp.user.username} total hours = ${total}, expected 176!`);
+    }
+  }
+
+  // STEP 3.5: Targeted Anti-Clustering Swap Repair
+  for (const emp of employees) {
+    let curOff = 0;
+    let streakStart = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (emp.schedule.get(d) === 'off') {
+        if (curOff === 0) streakStart = d;
+        curOff++;
+      } else {
+        if (curOff >= 3) {
+          const streakEnd = d - 1;
+          let swapped = false;
+
+          for (let targetDay = streakStart; targetDay <= streakEnd; targetDay++) {
+            if (swapped) break;
+            const currentMornStaffOnTarget = employees.filter(e => e.id !== emp.id && e.schedule.get(targetDay) === '12h-m');
+
+            for (const partner of currentMornStaffOnTarget) {
+              if (swapped) break;
+              if (emp.schedule.get(targetDay) !== 'off') continue;
+
+              let pCurOff = 1;
+              for (let cd = targetDay - 1; cd >= 1; cd--) {
+                if (partner.schedule.get(cd) === 'off') pCurOff++;
+                else break;
+              }
+              for (let cd = targetDay + 1; cd <= daysInMonth; cd++) {
+                if (partner.schedule.get(cd) === 'off') pCurOff++;
+                else break;
+              }
+              if (pCurOff >= 3) continue;
+
+              const otherStaffOnTarget = employees.filter(e => e.id !== emp.id && e.id !== partner.id && e.schedule.get(targetDay) === '12h-m');
+              const totalMalesIfEmpTakes = (emp.user.gender === 'Male' ? 1 : 0) + otherStaffOnTarget.filter(e => e.user.gender === 'Male').length;
+              if (totalMalesIfEmpTakes < 1) continue;
+
+              const isUnassignedRest = (s: ShiftType | undefined) => s === 'off' || s === 'free' || s === 'holiday';
+
+              for (const [mDay, mShift] of emp.schedule.entries()) {
+                if (mShift !== '12h-m') continue;
+                if (partner.schedule.has(mDay) && !isUnassignedRest(partner.schedule.get(mDay))) continue;
+
+                const otherStaffOnMDay = employees.filter(e => e.id !== emp.id && e.id !== partner.id && e.schedule.get(mDay) === '12h-m');
+                const totalMalesIfPartnerTakes = (partner.user.gender === 'Male' ? 1 : 0) + otherStaffOnMDay.filter(e => e.user.gender === 'Male').length;
+                if (totalMalesIfPartnerTakes < 1) continue;
+
+                if (mDay > 1 && partner.schedule.get(mDay - 1) === '12h-m') continue;
+                if (mDay < daysInMonth && partner.schedule.get(mDay + 1) === '12h-m') continue;
+                if (targetDay > 1 && emp.schedule.get(targetDay - 1) === '12h-m') continue;
+                if (targetDay < daysInMonth && emp.schedule.get(targetDay + 1) === '12h-m') continue;
+
+                // Perform swap!
+                const restForEmp = isHoliday(mDay) ? 'holiday' : isWeekend(mDay) ? 'free' : 'off';
+                const restForPartner = isHoliday(targetDay) ? 'holiday' : isWeekend(targetDay) ? 'free' : 'off';
+                emp.schedule.set(targetDay, '12h-m');
+                emp.schedule.set(mDay, restForEmp);
+
+                partner.schedule.set(mDay, '12h-m');
+                partner.schedule.set(targetDay, restForPartner);
+                swapped = true;
+                break;
+              }
+            }
+          }
+        }
+        curOff = 0;
+      }
     }
   }
 }
@@ -681,12 +1004,35 @@ function runAudit(
     }
   }
 
+  const isLargeRoster = employees.length >= 15;
+  const maxAllowedConsecOff = isLargeRoster ? 2 : 4;
+  let maxConsecutiveOffDays = 0;
+  let offClusteringViolations = 0;
+
+  for (const emp of employees) {
+    let curOff = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (emp.schedule.get(d) === 'off') {
+        curOff++;
+        if (curOff > maxConsecutiveOffDays) maxConsecutiveOffDays = curOff;
+        if (curOff > maxAllowedConsecOff) {
+          offClusteringViolations++;
+          errors.push(`Staff ${emp.user.firstName} ${emp.user.lastName} has ${curOff} consecutive weekday 'off' days (max allowed: ${maxAllowedConsecOff}).`);
+          break;
+        }
+      } else {
+        curOff = 0;
+      }
+    }
+  }
+
   const isValid = eveningDeficitDays === 0 &&
                   morningDeficitDays === 0 &&
                   femaleViolations === 0 &&
                   maleViolations === 0 &&
                   departmentViolations === 0 &&
-                  hoursViolations === 0;
+                  hoursViolations === 0 &&
+                  offClusteringViolations === 0;
 
   return {
     isValid,
@@ -699,6 +1045,8 @@ function runAudit(
     maleViolations,
     departmentViolations,
     hoursViolations,
+    maxConsecutiveOffDays,
+    offClusteringViolations,
     rows,
     errors,
   };
@@ -878,6 +1226,7 @@ export class MonthlyScheduleGenerator {
     console.log(`Status: ${audit.isValid ? 'PASSED (Zero Deficit & Strict 176h Compliance)' : 'FAILED'}`);
     console.log(`Evening Deficits: ${audit.eveningDeficitDays}, Morning Deficits: ${audit.morningDeficitDays}`);
     console.log(`Female Violations: ${audit.femaleViolations}, Male Violations: ${audit.maleViolations}, Dept Violations: ${audit.departmentViolations}`);
+    console.log(`Max Consec Off: ${audit.maxConsecutiveOffDays}, Off Clustering Violations: ${audit.offClusteringViolations}`);
     console.log(`======================================================`);
 
     console.table(
