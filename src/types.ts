@@ -60,6 +60,7 @@ export interface ScheduleRequestUpdateItem {
   requestedShift: string;
   hours?: number;
   status?: 'pending' | 'accepted' | 'denied';
+  remark?: string;
 }
 
 export interface ScheduleRequest {

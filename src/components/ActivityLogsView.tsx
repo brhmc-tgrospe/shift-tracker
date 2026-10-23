@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
-import { Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Search, Filter, ChevronLeft, ChevronRight, Code } from 'lucide-react';
+import { SHIFTS } from '../types';
 import toast from 'react-hot-toast';
 
 interface ActivityLog {
@@ -17,6 +18,337 @@ interface ActivityLog {
   target_username: string | null;
   target_firstName: string | null;
   target_lastName: string | null;
+}
+
+export function formatLogDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      const dateObj = new Date(y, m - 1, d);
+      return dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    }
+  }
+  const dateObj = new Date(dateStr);
+  return isNaN(dateObj.getTime())
+    ? dateStr
+    : dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+}
+
+export function formatLogMonth(monthStr: string): string {
+  if (!monthStr) return '';
+  const parts = monthStr.split('-');
+  if (parts.length >= 2) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!isNaN(y) && !isNaN(m)) {
+      const dateObj = new Date(y, m - 1, 1);
+      return dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+  }
+  return monthStr;
+}
+
+export function formatLogShift(shiftKey: string | undefined | null): string {
+  if (!shiftKey) return 'Day Off';
+  const clean = String(shiftKey).trim().toLowerCase();
+  if (clean === 'off' || clean === 'free') return 'Day Off';
+  if (clean === '8h') return '8am-5pm';
+  if (clean === '12h-m') return '12h Morning';
+  if (clean === '12h-e') return '12h Evening';
+  if (clean === '12h') return '12h Shift';
+  if (clean === 'holiday') return 'Holiday';
+  if (clean === 'on-leave') return 'On-Leave';
+  if (clean === 'absent') return 'Absent';
+  if (clean === 'n/a') return 'N/A';
+
+  const def = SHIFTS[shiftKey as keyof typeof SHIFTS];
+  return def?.label || shiftKey;
+}
+
+export function getShiftBadgeClass(shiftKey: string | undefined | null): string {
+  const clean = String(shiftKey || '').trim().toLowerCase();
+  if (clean === 'off' || clean === 'free') {
+    return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200 border border-rose-200 dark:border-rose-800';
+  }
+  if (clean === '8h' || clean === '8am-5pm') {
+    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800';
+  }
+  if (clean === '12h-m' || clean === '12h morning') {
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800';
+  }
+  if (clean === '12h-e' || clean === '12h evening') {
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 border border-blue-200 dark:border-blue-800';
+  }
+  if (clean === 'holiday') {
+    return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200 border border-orange-200 dark:border-orange-800';
+  }
+  if (clean === 'on-leave') {
+    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200 border border-purple-200 dark:border-purple-800';
+  }
+  return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600';
+}
+
+function getActionBadgeClass(action: string): string {
+  switch (action) {
+    case 'SHIFT_UPDATED':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 border border-blue-200 dark:border-blue-800';
+    case 'BULK_SHIFT_UPDATE':
+      return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800';
+    case 'DUPLICATE_SHIFT_UPDATE':
+      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200 border border-purple-200 dark:border-purple-800';
+    case 'REQUEST_CREATED':
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 border border-sky-200 dark:border-sky-800';
+    case 'REQUEST_ACCEPTED':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800';
+    case 'REQUEST_DENIED':
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200 border border-rose-200 dark:border-rose-800';
+    case 'REQUEST_PARTIALLY_ACCEPTED':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700';
+  }
+}
+
+function getTargetDisplayName(log: ActivityLog): string {
+  if (log.target_firstName) {
+    return `${log.target_firstName} ${log.target_lastName || ''}`.trim();
+  }
+  if (log.target_username) {
+    return log.target_username;
+  }
+  const updates = log.details?.updates || log.details?.details?.updates;
+  if (Array.isArray(updates) && updates.length > 0) {
+    const names = Array.from(new Set(updates.map((u: any) => u.employeeName).filter(Boolean)));
+    if (names.length === 1) {
+      return names[0] as string;
+    }
+  }
+  if (log.action === 'REQUEST_CREATED' && log.details?.type === 'change' && log.actor_firstName) {
+    return `${log.actor_firstName} ${log.actor_lastName || ''}`.trim();
+  }
+  return '-';
+}
+
+function ShiftUpdateRow({ u, showEmployee = false }: { u: any; showEmployee?: boolean; key?: React.Key }) {
+  const dateStr = u.date;
+  const oldShift = u.oldShift ?? u.currentShift ?? 'off';
+  const newShift = u.newShift ?? u.requestedShift ?? 'off';
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap text-xs sm:text-sm py-0.5">
+      {showEmployee && u.employeeName && (
+        <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+          {u.employeeName} —
+        </span>
+      )}
+      <span className="font-semibold text-gray-900 dark:text-gray-100">
+        {formatLogDate(dateStr)}
+      </span>
+      <span className="text-gray-500 dark:text-gray-400 text-xs">from</span>
+      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getShiftBadgeClass(oldShift)}`}>
+        {formatLogShift(oldShift)}
+      </span>
+      <span className="text-gray-500 dark:text-gray-400 text-xs">to</span>
+      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getShiftBadgeClass(newShift)}`}>
+        {formatLogShift(newShift)}
+      </span>
+      {u.status && (
+        <span
+          className={`ml-1 px-1.5 py-0.2 text-[10px] uppercase font-bold rounded ${
+            u.status === 'accepted'
+              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+              : u.status === 'denied'
+              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+          }`}
+        >
+          {u.status}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ActivityLogDetailsCell({ log }: { log: ActivityLog }) {
+  const [showRaw, setShowRaw] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const details = log.details || {};
+
+  // Extract updates array from various possible structures
+  let updates: any[] = [];
+  if (Array.isArray(details.updates)) {
+    updates = details.updates;
+  } else if (details.details && Array.isArray(details.details.updates)) {
+    updates = details.details.updates;
+  } else if (Array.isArray(details.dates)) {
+    updates = details.dates.map((d: any) => ({
+      date: d.date,
+      oldShift: 'off',
+      newShift: d.shift,
+      hours: d.hours
+    }));
+  } else if (details.details && Array.isArray(details.details.dates)) {
+    updates = details.details.dates.map((d: any) => ({
+      date: d.date,
+      oldShift: 'off',
+      newShift: d.shift,
+      hours: d.hours
+    }));
+  } else if (details.date && (details.oldShift !== undefined || details.newShift !== undefined)) {
+    updates = [{
+      date: details.date,
+      oldShift: details.oldShift,
+      newShift: details.newShift,
+      hours: details.hours
+    }];
+  }
+
+  // Check if multiple employees exist in updates
+  const uniqueEmployeeNames = Array.from(new Set(updates.map(u => u.employeeName).filter(Boolean)));
+  const showEmployeeNameInRow = uniqueEmployeeNames.length > 1;
+
+  // Determine swap details
+  const isSwap = details.type === 'swap';
+  const requesterDates = details.details?.requesterDates || details.requesterDates;
+  const targetDates = details.details?.targetDates || details.targetDates;
+
+  const visibleUpdates = isExpanded ? updates : updates.slice(0, 4);
+
+  return (
+    <div className="space-y-1.5 max-w-xl">
+      {/* Shift updates list */}
+      {updates.length > 0 && (
+        <div className="space-y-1">
+          {visibleUpdates.map((u, i) => (
+            <ShiftUpdateRow key={i} u={u} showEmployee={showEmployeeNameInRow} />
+          ))}
+          {updates.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold pt-0.5 inline-block"
+            >
+              {isExpanded ? 'Show less' : `+ ${updates.length - 4} more shifts`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Swap request rendering */}
+      {isSwap && (requesterDates || targetDates) && (
+        <div className="space-y-1 text-xs sm:text-sm">
+          {Array.isArray(requesterDates) && requesterDates.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Requester:</span>
+              {requesterDates.map((d: any, idx: number) => (
+                <span key={idx} className="inline-flex items-center gap-1">
+                  <span>{formatLogDate(d.date)}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${getShiftBadgeClass(d.shift)}`}>
+                    {formatLogShift(d.shift)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+          {Array.isArray(targetDates) && targetDates.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Target:</span>
+              {targetDates.map((d: any, idx: number) => (
+                <span key={idx} className="inline-flex items-center gap-1">
+                  <span>{formatLogDate(d.date)}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${getShiftBadgeClass(d.shift)}`}>
+                    {formatLogShift(d.shift)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Historical bulk shift update (when updates array is not present) */}
+      {updates.length === 0 && !isSwap && details.totalUpdated !== undefined && (
+        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+          Bulk shift update: <span className="font-semibold">{details.totalUpdated}</span> shifts{' '}
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            ({details.upsertedCount ?? 0} updated, {details.deletedCount ?? 0} cleared)
+          </span>
+        </div>
+      )}
+
+      {/* Duplicate month action */}
+      {log.action === 'DUPLICATE_SHIFT_UPDATE' && details.sourceMonth && details.targetMonth && (
+        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+          Duplicated <span className="font-semibold">{details.duplicatedCount || 0}</span> shifts from{' '}
+          <span className="font-semibold text-gray-900 dark:text-white">{formatLogMonth(details.sourceMonth)}</span> to{' '}
+          <span className="font-semibold text-gray-900 dark:text-white">{formatLogMonth(details.targetMonth)}</span>
+        </div>
+      )}
+
+      {/* Request status info */}
+      {details.requestId && (
+        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+            Request #{details.requestId}
+          </span>
+          {details.admin_status && (
+            <span
+              className={`text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                details.admin_status === 'accepted'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : details.admin_status === 'denied'
+                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+              }`}
+            >
+              {details.admin_status === 'partially_accepted' ? 'Partially Approved' : details.admin_status}
+            </span>
+          )}
+          {details.acceptedCount !== undefined && details.deniedCount !== undefined && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              ({details.acceptedCount} approved, {details.deniedCount} denied)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Request reason */}
+      {details.reason && (
+        <div className="text-xs text-gray-600 dark:text-gray-300 italic bg-gray-50 dark:bg-gray-900/60 p-2 rounded border border-gray-200/80 dark:border-gray-700/80 mt-1">
+          <span className="font-semibold not-italic text-gray-700 dark:text-gray-300">Reason:</span> "{details.reason}"
+        </div>
+      )}
+
+      {/* Admin remark */}
+      {details.remark && (
+        <div className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded border border-amber-200 dark:border-amber-800 mt-1">
+          <span className="font-semibold">Remark:</span> {details.remark}
+        </div>
+      )}
+
+      {/* Toggle raw JSON view */}
+      <div className="pt-1 flex items-center">
+        <button
+          type="button"
+          onClick={() => setShowRaw(!showRaw)}
+          className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1 font-mono transition-colors"
+        >
+          <Code className="w-3 h-3" />
+          {showRaw ? 'Hide raw JSON' : 'Show raw JSON'}
+        </button>
+      </div>
+
+      {showRaw && (
+        <pre className="mt-1 text-[11px] whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-md border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+          {JSON.stringify(details, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }
 
 export function ActivityLogsView() {
@@ -179,6 +511,7 @@ export function ActivityLogsView() {
               <option value="REQUEST_CREATED">REQUEST_CREATED</option>
               <option value="REQUEST_ACCEPTED">REQUEST_ACCEPTED</option>
               <option value="REQUEST_DENIED">REQUEST_DENIED</option>
+              <option value="REQUEST_PARTIALLY_ACCEPTED">REQUEST_PARTIALLY_ACCEPTED</option>
             </select>
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
               <Filter className="h-4 w-4 text-gray-400" />
@@ -249,20 +582,18 @@ export function ActivityLogsView() {
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      <span className={`px-2.5 py-1 inline-flex text-xs leading-4 font-semibold rounded-full ${getActionBadgeClass(log.action)}`}>
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-medium">
                       {log.actor_firstName} {log.actor_lastName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {log.target_firstName ? `${log.target_firstName} ${log.target_lastName}` : '-'}
+                      {getTargetDisplayName(log)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      <pre className="text-xs whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-md border border-gray-200 dark:border-gray-700">
-                        {JSON.stringify(log.details, null, 2)}
-                      </pre>
+                      <ActivityLogDetailsCell log={log} />
                     </td>
                   </tr>
                 ))

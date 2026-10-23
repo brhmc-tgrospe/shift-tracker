@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format, addMonths, subMonths, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle, Eraser, Undo, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Loader2, Paintbrush, Printer, Copy, AlertCircle, Eraser, Undo, XCircle, Search, X } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS, ShiftType } from '../types';
 import { ScheduleGrid } from './ScheduleGrid';
@@ -25,6 +25,7 @@ export function AdminScheduleView() {
   const [showAutoGenerateModal, setShowAutoGenerateModal] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>('All');
   const [genderFilter, setGenderFilter] = useState<string>('All');
+  const [employeeSearch, setEmployeeSearch] = useState<string>('');
   
   const [autosaveTimer, setAutosaveTimer] = useState(30);
   
@@ -183,11 +184,18 @@ export function AdminScheduleView() {
   // Get unique departments for the filter
   const departments = ['All', ...Array.from(new Set(users.map(u => u.department_name || 'No Department')))].sort();
 
-  // Group users by department and filter by department & gender
+  // Group users by department and filter by department, gender, and employee search
   const filteredUsers = users.filter(u => {
     const matchesDept = departmentFilter === 'All' || (u.department_name || 'No Department') === departmentFilter;
     const matchesGender = genderFilter === 'All' || u.gender === genderFilter;
-    return matchesDept && matchesGender;
+    
+    const query = employeeSearch.trim().toLowerCase();
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    const matchesSearch = !query ||
+      fullName.includes(query) ||
+      (u.username && u.username.toLowerCase().includes(query));
+
+    return matchesDept && matchesGender && matchesSearch;
   });
   const groupedUsers = filteredUsers.reduce((acc, user) => {
     const dept = user.department_name || 'No Department';
@@ -439,54 +447,90 @@ export function AdminScheduleView() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 print:hidden">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 mr-2">
-          <Paintbrush className="w-4 h-4" /> Paint Mode:
-        </span>
-        <button
-          onClick={() => setSelectedShiftType(null)}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-            selectedShiftType === null 
-              ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 dark:bg-indigo-900/50 dark:text-indigo-300' 
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-          }`}
-        >
-          Off (Click to edit)
-        </button>
-        {AVAILABLE_SHIFTS.map(st => (
+      <div className="mb-4 flex flex-col gap-2.5 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 print:hidden">
+        {/* Paint Mode Controls */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 mr-2">
+            <Paintbrush className="w-4 h-4" /> Paint Mode:
+          </span>
           <button
-            key={st.type}
-            onClick={() => setSelectedShiftType(st.type)}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${st.colorClass} ${
-              selectedShiftType === st.type ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-gray-800' : 'opacity-70 hover:opacity-100'
+            onClick={() => setSelectedShiftType(null)}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              selectedShiftType === null 
+                ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 dark:bg-indigo-900/50 dark:text-indigo-300' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
-            {st.label}
+            Off (Click to edit)
           </button>
-        ))}
-        
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department:</label>
-          <select 
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          >
-            {departments.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          {AVAILABLE_SHIFTS.map(st => (
+            <button
+              key={st.type}
+              onClick={() => setSelectedShiftType(st.type)}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${st.colorClass} ${
+                selectedShiftType === st.type ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-gray-800' : 'opacity-70 hover:opacity-100'
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
         </div>
+        
+        {/* Filters Row: Department, Gender, and Employee Search */}
+        <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-gray-100 dark:border-gray-700/60">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department:</label>
+            <select 
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+            >
+              {departments.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender:</label>
-          <select 
-            value={genderFilter}
-            onChange={(e) => setGenderFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          >
-            <option value="All">All Genders</option>
-            <option value="Female">Female</option>
-            <option value="Male">Male</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender:</label>
+            <select 
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+            >
+              <option value="All">All Genders</option>
+              <option value="Female">Female</option>
+              <option value="Male">Male</option>
+            </select>
+          </div>
+
+          <div className="relative flex items-center min-w-[200px] sm:min-w-[240px]">
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search employee..."
+              value={employeeSearch}
+              onChange={(e) => setEmployeeSearch(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 text-sm bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white transition-all"
+              aria-label="Search employee by name or username"
+            />
+            {employeeSearch && (
+              <button
+                type="button"
+                onClick={() => setEmployeeSearch('')}
+                className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {(employeeSearch || departmentFilter !== 'All' || genderFilter !== 'All') && (
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 self-center">
+              {filteredUsers.length} of {users.length} employees
+            </span>
+          )}
         </div>
       </div>
 

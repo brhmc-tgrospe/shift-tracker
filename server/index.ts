@@ -634,6 +634,45 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
   const user = (req as any).user;
 
   try {
+    const userIds = Array.from(new Set(shifts.map((s: any) => s.user_id)));
+    const targetUserId = userIds.length === 1 ? userIds[0] : null;
+
+    let userMap = new Map<number, any>();
+    if (userIds.length > 0) {
+      const userRows = await sql`
+        SELECT id, username, "firstName", "lastName"
+        FROM users
+        WHERE id = ANY(${userIds}::int[])
+      `;
+      userMap = new Map(userRows.map((u: any) => [u.id, u]));
+    }
+
+    const shiftUserIds = shifts.map((s: any) => s.user_id);
+    const shiftDates = shifts.map((s: any) => s.date);
+    const oldShiftsRows = await sql`
+      SELECT user_id, date, shift, hours
+      FROM shifts
+      WHERE (user_id, date) IN (
+        SELECT * FROM unnest(${shiftUserIds}::int[], ${shiftDates}::varchar[])
+      )
+    `;
+    const oldShiftMap = new Map(oldShiftsRows.map((o: any) => [`${o.user_id}-${o.date}`, o]));
+
+    const updates = shifts.map((s: any) => {
+      const old = oldShiftMap.get(`${s.user_id}-${s.date}`);
+      const oldShift = old ? old.shift : 'off';
+      const userInfo = userMap.get(s.user_id);
+      const employeeName = userInfo ? `${userInfo.firstName} ${userInfo.lastName}`.trim() : undefined;
+      return {
+        userId: s.user_id,
+        employeeName,
+        date: s.date,
+        oldShift,
+        newShift: s.shift,
+        hours: s.hours
+      };
+    });
+
     const toDelete = shifts.filter(s => s.shift === 'free' && s.hours === 0);
     const toUpsert = shifts.filter(s => !(s.shift === 'free' && s.hours === 0));
 
@@ -691,10 +730,11 @@ app.post('/api/shifts/bulk', authenticateToken, requireAdminOrDeveloper, async (
       }
     }
 
-    await logActivity('BULK_SHIFT_UPDATE', user.id, null, {
+    await logActivity('BULK_SHIFT_UPDATE', user.id, targetUserId, {
       totalUpdated: shifts.length,
       upsertedCount: toUpsert.length,
-      deletedCount: toDelete.length
+      deletedCount: toDelete.length,
+      updates
     });
 
     res.json({ message: 'Bulk shifts updated successfully' });
