@@ -302,6 +302,31 @@ export function ScheduleGrid({
                       })}
                       {!hideTotalHours && <td className="border-b border-l border-gray-200 dark:border-gray-700 sticky right-0 bg-white dark:bg-gray-800"></td>}
                     </tr>
+                    <tr className="print:hidden">
+                      <td className="px-4 py-1 border-b border-r border-gray-200 dark:border-gray-700 bg-rose-50 dark:bg-rose-900/20 sticky left-0 z-10 text-xs font-semibold text-rose-800 dark:text-rose-300">
+                        Day Off
+                      </td>
+                      {days.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        let count = 0;
+                        allUsers.forEach(u => {
+                          const key = `${u.id}-${dateStr}`;
+                          const data = pendingChanges[key] || shifts[key];
+                          if (data?.shift === 'off') count++;
+                        });
+                        return (
+                          <td key={dateStr} className={`border-b border-gray-200 dark:border-gray-700 text-center p-1`}>
+                            <div className={`w-full h-6 flex items-center justify-center rounded text-xs font-bold ${
+                              count === 0 ? 'text-gray-300 dark:text-gray-600' :
+                              'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+                            }`}>
+                              {count}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {!hideTotalHours && <td className="border-b border-l border-gray-200 dark:border-gray-700 sticky right-0 bg-white dark:bg-gray-800"></td>}
+                    </tr>
                   </>
                 );
               })()}
