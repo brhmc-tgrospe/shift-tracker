@@ -11,6 +11,7 @@ export interface ScheduleResult {
 
 export interface GeneratorOptions {
   exemptEveningUserIds?: number[];
+  customHolidayDates?: Set<string>;
 }
 
 export interface SchedulingUser {
@@ -234,7 +235,7 @@ function solveEveningSlots(
       const hadRestA = empA.schedule.has(restDay);
       const prevRestA = empA.schedule.get(restDay);
       if (restDay <= daysInMonth) {
-        const rShift = isHoliday(restDay) ? 'holiday' : isWeekend(restDay) ? 'free' : 'off';
+        const rShift = (isHoliday(restDay) && !isWeekend(restDay)) ? 'holiday' : isWeekend(restDay) ? 'free' : 'off';
         empA.schedule.set(restDay, rShift);
         empA.lockedDays.set(restDay, rShift);
       }
@@ -251,7 +252,7 @@ function solveEveningSlots(
       const hadRestB = empB.schedule.has(restDay);
       const prevRestB = empB.schedule.get(restDay);
       if (restDay <= daysInMonth) {
-        const rShift = isHoliday(restDay) ? 'holiday' : isWeekend(restDay) ? 'free' : 'off';
+        const rShift = (isHoliday(restDay) && !isWeekend(restDay)) ? 'holiday' : isWeekend(restDay) ? 'free' : 'off';
         empB.schedule.set(restDay, rShift);
         empB.lockedDays.set(restDay, rShift);
       }
@@ -586,14 +587,17 @@ function solveMorningShifts(
  */
 function balanceTo176HoursAndFill(
   employees: EmployeeState[],
+  year: number,
+  month: number,
   daysInMonth: number,
   isHoliday: (d: number) => boolean,
   isWeekend: (d: number) => boolean
 ) {
-  // Pre-credit unassigned official holidays as 'holiday' (8h credit)
+  // Pre-credit unassigned official WEEKDAY holidays as 'holiday' (8h credit)
+  // Weekend holidays do not grant unassigned credit, so non-working staff remain free/off (0h)
   for (const emp of employees) {
     for (let d = 1; d <= daysInMonth; d++) {
-      if (isHoliday(d) && !emp.schedule.has(d)) {
+      if (isHoliday(d) && !isWeekend(d) && !emp.schedule.has(d)) {
         emp.schedule.set(d, 'holiday');
       }
     }
@@ -607,7 +611,8 @@ function balanceTo176HoursAndFill(
     let currentHours = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const shift = emp.schedule.get(d);
-      currentHours += calculateRenderedHours(shift, isHoliday(d));
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      currentHours += calculateRenderedHours(shift, dateStr, isHoliday(d));
     }
 
     const hoursNeeded = 176 - currentHours;
@@ -838,7 +843,8 @@ function balanceTo176HoursAndFill(
     // Verify exact 176h
     let total = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      total += calculateRenderedHours(emp.schedule.get(d), isHoliday(d));
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      total += calculateRenderedHours(emp.schedule.get(d), dateStr, isHoliday(d));
     }
     emp.totalRenderedHours = total;
     if (total !== 176) {
@@ -888,6 +894,13 @@ function balanceTo176HoursAndFill(
                 if (mShift !== '12h-m') continue;
                 if (partner.schedule.has(mDay) && !isUnassignedRest(partner.schedule.get(mDay))) continue;
 
+                // Ensure swap only occurs if both days render identical hours
+                const dateStrM = `${year}-${String(month + 1).padStart(2, '0')}-${String(mDay).padStart(2, '0')}`;
+                const dateStrTarget = `${year}-${String(month + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+                const hoursM = calculateRenderedHours('12h-m', dateStrM, isHoliday(mDay));
+                const hoursTarget = calculateRenderedHours('12h-m', dateStrTarget, isHoliday(targetDay));
+                if (hoursM !== hoursTarget) continue;
+
                 const otherStaffOnMDay = employees.filter(e => e.id !== emp.id && e.id !== partner.id && e.schedule.get(mDay) === '12h-m');
                 const totalMalesIfPartnerTakes = (partner.user.gender === 'Male' ? 1 : 0) + otherStaffOnMDay.filter(e => e.user.gender === 'Male').length;
                 if (totalMalesIfPartnerTakes < 1) continue;
@@ -898,8 +911,8 @@ function balanceTo176HoursAndFill(
                 if (targetDay < daysInMonth && emp.schedule.get(targetDay + 1) === '12h-m') continue;
 
                 // Perform swap!
-                const restForEmp = isHoliday(mDay) ? 'holiday' : isWeekend(mDay) ? 'free' : 'off';
-                const restForPartner = isHoliday(targetDay) ? 'holiday' : isWeekend(targetDay) ? 'free' : 'off';
+                const restForEmp = (isHoliday(mDay) && !isWeekend(mDay)) ? 'holiday' : isWeekend(mDay) ? 'free' : 'off';
+                const restForPartner = (isHoliday(targetDay) && !isWeekend(targetDay)) ? 'holiday' : isWeekend(targetDay) ? 'free' : 'off';
                 emp.schedule.set(targetDay, '12h-m');
                 emp.schedule.set(mDay, restForEmp);
 
@@ -1070,7 +1083,8 @@ export class MonthlyScheduleGenerator {
     allUsers: SchedulingUser[],
     year: number,
     month: number,
-    exemptEveningUserIds: number[] = []
+    exemptEveningUserIds: number[] = [],
+    customHolidayDates?: Set<string>
   ): ValidationResult {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const slots = buildEveningSlots(daysInMonth, year, month);
@@ -1090,15 +1104,33 @@ export class MonthlyScheduleGenerator {
     const errors: string[] = [];
 
     // Capacity check: Dual-coverage requires enough staff to cover 4N shift-days
-    const holidaysMap = getPhilippineHolidaysForMonthSync(year, month);
-    const totalHolidays = holidaysMap.size;
-    const max12hShifts = 2 * Math.floor((176 - (totalHolidays * 8)) / 24);
+    const isHoliday = (d: number) => {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (customHolidayDates) {
+        return customHolidayDates.has(dateStr);
+      }
+      const holidaysMap = getPhilippineHolidaysForMonthSync(year, month);
+      return holidaysMap.has(dateStr);
+    };
+    const isWeekend = (d: number) => {
+      const day = new Date(year, month, d).getDay();
+      return day === 0 || day === 6;
+    };
+
+    let weekdayHolidaysCount = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (isHoliday(d) && !isWeekend(d)) {
+        weekdayHolidaysCount++;
+      }
+    }
+
+    const max12hShifts = 2 * Math.floor((176 - (weekdayHolidaysCount * 8)) / 24);
     const total12hRequired = daysInMonth * 4;
     const totalCapacity = nonItUsers.length * max12hShifts;
 
     if (totalCapacity < total12hRequired) {
       errors.push(
-        `Insufficient staff capacity for dual 12h coverage: ${nonItUsers.length} non-IT staff can work at most ${max12hShifts} 12-hour shifts each (${totalCapacity} total) due to ${totalHolidays} holidays, but ${total12hRequired} 12-hour shifts are required (${daysInMonth} days × 4 shifts/day). At least ${Math.ceil(total12hRequired / max12hShifts)} staff are required.`
+        `Insufficient staff capacity for dual 12h coverage: ${nonItUsers.length} non-IT staff can work at most ${max12hShifts} 12-hour shifts each (${totalCapacity} total) due to ${weekdayHolidaysCount} weekday holidays, but ${total12hRequired} 12-hour shifts are required (${daysInMonth} days × 4 shifts/day). At least ${Math.ceil(total12hRequired / max12hShifts)} staff are required.`
       );
     }
 
@@ -1153,26 +1185,36 @@ export class MonthlyScheduleGenerator {
     options: GeneratorOptions = {}
   ): Promise<ScheduleResult[]> {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const holidaysMap = await getPhilippineHolidaysForMonthAsync(year, month);
+    const holidaysMap = options.customHolidayDates
+      ? null
+      : await getPhilippineHolidaysForMonthAsync(year, month);
     const isHoliday = (d: number) => {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      return holidaysMap.has(dateStr);
+      if (options.customHolidayDates) {
+        return options.customHolidayDates.has(dateStr);
+      }
+      return holidaysMap ? holidaysMap.has(dateStr) : false;
     };
     const isWeekend = (d: number) => {
       const day = new Date(year, month, d).getDay();
       return day === 0 || day === 6;
     };
 
-    const totalHolidays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(isHoliday).length;
+    let weekdayHolidaysCount = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (isHoliday(d) && !isWeekend(d)) {
+        weekdayHolidaysCount++;
+      }
+    }
     // Maximum 12h shifts an employee can have without exceeding 176h
-    const max12hShifts = 2 * Math.floor((176 - (totalHolidays * 8)) / 24);
+    const max12hShifts = 2 * Math.floor((176 - (weekdayHolidaysCount * 8)) / 24);
 
     const exemptEveningSet = new Set(options.exemptEveningUserIds || []);
     const itUsers = allUsers.filter(u => u.department_name === 'IT Regular');
     const nonItUsers = allUsers.filter(u => u.department_name !== 'IT Regular');
 
     // Run upfront validation
-    const validation = this.validateStaffPool(allUsers, year, month, options.exemptEveningUserIds);
+    const validation = this.validateStaffPool(allUsers, year, month, options.exemptEveningUserIds, options.customHolidayDates);
     if (!validation.isValid) {
       throw new Error(`Schedule Generation Blocked: ${validation.errors.join(' ')}`);
     }
@@ -1215,7 +1257,7 @@ export class MonthlyScheduleGenerator {
     }
 
     // STEP 3 & 4: Balance to 176h and fill residual days
-    balanceTo176HoursAndFill(employees, daysInMonth, isHoliday, isWeekend);
+    balanceTo176HoursAndFill(employees, year, month, daysInMonth, isHoliday, isWeekend);
 
     // STEP 5: Audit & Console Table Log
     const audit = runAudit(employees, year, month, daysInMonth, isHoliday);
@@ -1255,13 +1297,13 @@ export class MonthlyScheduleGenerator {
       for (let d = 1; d <= daysInMonth; d++) {
         const shift = emp.schedule.get(d)!;
         const isH = isHoliday(d);
-        const hours = calculateRenderedHours(shift, isH);
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hours = calculateRenderedHours(shift, dateStr, isH);
         results.push({ userId: emp.id, dateStr, shift, hours });
       }
     }
 
-    // IT Regular Staff Rule: Mon-Fri 8h, Weekends free, Holidays holiday (8h)
+    // IT Regular Staff Rule: Mon-Fri 8h, Weekends free, Holidays holiday
     for (const itUser of itUsers) {
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -1273,7 +1315,7 @@ export class MonthlyScheduleGenerator {
         } else {
           shift = '8h';
         }
-        const hours = calculateRenderedHours(shift, isHoliday(d));
+        const hours = calculateRenderedHours(shift, dateStr, isHoliday(d));
         results.push({ userId: itUser.id, dateStr, shift, hours });
       }
     }

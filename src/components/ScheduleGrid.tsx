@@ -3,7 +3,7 @@ import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { Copy, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth, User } from '../context/AuthContext';
 import { SHIFTS } from '../types';
-import { getMonthlyHolidayDates, calculateRenderedHours } from '../utils/hours';
+import { getMonthlyHolidayDates, calculateRenderedHours, toggleHolidayDate } from '../utils/hours';
 
 const AVAILABLE_SHIFTS = Object.values(SHIFTS);
 
@@ -44,6 +44,7 @@ export function ScheduleGrid({
   const [activeShiftTypes, setActiveShiftTypes] = useState<Set<string>>(
     new Set(AVAILABLE_SHIFTS.map(s => s.type))
   );
+  const [holidayVersion, setHolidayVersion] = useState(0);
 
   const daysInMonth = getDaysInMonth(currentDate);
   const monthStart = startOfMonth(currentDate);
@@ -51,7 +52,7 @@ export function ScheduleGrid({
 
   const holidayDates = useMemo(
     () => getMonthlyHolidayDates(currentDate.getFullYear(), currentDate.getMonth(), { ...shifts, ...pendingChanges }),
-    [currentDate, shifts, pendingChanges]
+    [currentDate, shifts, pendingChanges, holidayVersion]
   );
 
   return (
@@ -77,11 +78,55 @@ export function ScheduleGrid({
                   Employee
                 </th>
                 {days.map(day => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
                   const isWeekend = format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat';
+                  const isHoliday = holidayDates.has(dateStr);
+
                   return (
-                    <th key={day.toISOString()} className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] print:border-none print:bg-transparent ${isWeekend ? 'bg-gray-100 dark:bg-gray-800/90 print:bg-transparent' : ''}`}>
-                      <div className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</div>
-                      <div className={`text-sm print:text-xs ${isWeekend ? 'text-red-500' : ''}`}>
+                    <th
+                      key={day.toISOString()}
+                      className={`px-2 py-2 print:px-0 print:py-1 text-center font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 min-w-[50px] print:min-w-[25px] print:border-none print:bg-transparent ${
+                        isWeekend ? 'bg-gray-100 dark:bg-gray-800/90 print:bg-transparent' : ''
+                      } ${!readOnly && isAdminOrDev ? 'cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors' : ''}`}
+                      title={
+                        !readOnly && isAdminOrDev
+                          ? isHoliday
+                            ? 'Holiday: Click to remove holiday'
+                            : 'Click to mark as holiday'
+                          : isHoliday
+                          ? 'Philippine Holiday'
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!readOnly && isAdminOrDev) {
+                          toggleHolidayDate(
+                            currentDate.getFullYear(),
+                            currentDate.getMonth(),
+                            dateStr,
+                            { ...shifts, ...pendingChanges }
+                          );
+                          setHolidayVersion(v => v + 1);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-xs print:text-[10px] uppercase">{format(day, 'EEE')}</span>
+                        {isHoliday && (
+                          <span
+                            className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-800"
+                            title="Philippine Holiday"
+                          />
+                        )}
+                      </div>
+                      <div
+                        className={`text-sm print:text-xs font-semibold ${
+                          isHoliday
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : isWeekend
+                            ? 'text-red-500'
+                            : ''
+                        }`}
+                      >
                         {format(day, 'd')}
                       </div>
                     </th>
@@ -180,12 +225,12 @@ export function ScheduleGrid({
                               cellColor = isFilteredOut
                                 ? 'bg-gray-50/50 dark:bg-gray-800/30 text-gray-300 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 opacity-50'
                                 : shiftType.colorClass;
-                              totalHours += calculateRenderedHours(activeData.shift, isHoliday, activeData.hours);
-                            } else if (isHoliday) {
-                              totalHours += 8;
+                              totalHours += calculateRenderedHours(activeData.shift, dateStr, isHoliday, activeData.hours);
+                            } else {
+                              totalHours += calculateRenderedHours('free', dateStr, isHoliday, activeData.hours);
                             }
-                          } else if (isHoliday) {
-                            totalHours += 8;
+                          } else {
+                            totalHours += calculateRenderedHours(undefined, dateStr, isHoliday);
                           }
 
                           const dayOfWeek = format(day, 'EEE');

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { getDaysInMonth, getFirstDayOfMonth, formatYYYYMMDD, DAY_NAMES, MONTH_NAMES } from '../utils/date';
 import { DayData, SHIFTS } from '../types';
 import { ShiftModal } from './ShiftModal';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MessageSquare, Globe } from 'lucide-react';
-import { calculateRenderedHours } from '../utils/hours';
+import { calculateRenderedHours, getMonthlyHolidayDates } from '../utils/hours';
 
 interface CalendarProps {
   currentYear: number;
@@ -46,6 +46,11 @@ export function Calendar({
   // Ensure the grid always has at least 5 rows (35 cells) and fills the last row completely
   const totalGridCells = Math.max(35, Math.ceil(totalCells / 7) * 7);
   const trailingBlanks = Array.from({ length: totalGridCells - totalCells }, (_, i) => i);
+
+  const holidayDates = useMemo(
+    () => getMonthlyHolidayDates(currentYear, currentMonth, dayDataMap),
+    [currentYear, currentMonth, dayDataMap]
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full transition-colors">
@@ -109,9 +114,11 @@ export function Calendar({
           {days.map(day => {
             const dateStr = formatYYYYMMDD(currentYear, currentMonth, day);
             const data = dayDataMap[dateStr];
-            const isHoliday = data?.shift === 'holiday';
+            const isHoliday = holidayDates.has(dateStr) || data?.shift === 'holiday';
             const shiftDef = data ? SHIFTS[data.shift] : SHIFTS['free'];
-            const displayHours = data ? (data.hours > 0 ? data.hours : calculateRenderedHours(data.shift, isHoliday)) : 0;
+            const displayHours = data
+              ? calculateRenderedHours(data.shift, dateStr, isHoliday, data.hours > 0 ? data.hours : undefined)
+              : 0;
 
             const hasPersonalNote = Boolean(data?.notes?.trim());
             const hasPublicNote = Boolean(data?.public_notes?.trim());

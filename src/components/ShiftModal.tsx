@@ -15,7 +15,7 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
   const isInitiallyHoliday = initialData?.shift === 'holiday' || initialData?.hours === 20;
   const [shift, setShift] = useState<ShiftType>(initialData?.shift || 'free');
   const [hours, setHours] = useState<number | ''>(
-    initialData?.hours ?? calculateRenderedHours(initialData?.shift || 'free', isInitiallyHoliday)
+    initialData?.hours ?? calculateRenderedHours(initialData?.shift || 'free', date, isInitiallyHoliday)
   );
   const [notes, setNotes] = useState<string>(initialData?.notes || '');
   const [publicNotes, setPublicNotes] = useState<string>(initialData?.public_notes || '');
@@ -25,7 +25,7 @@ export function ShiftModal({ date, initialData, notesOnly, onSave, onClose }: Sh
 
   const handleShiftChange = (newShift: ShiftType) => {
     const isHoliday = newShift === 'holiday' || isInitiallyHoliday;
-    const newHours = calculateRenderedHours(newShift, isHoliday);
+    const newHours = calculateRenderedHours(newShift, date, isHoliday);
     setShift(newShift);
     setHours(newHours);
     

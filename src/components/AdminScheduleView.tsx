@@ -8,7 +8,7 @@ import { MonthlyScheduleGenerator } from '../utils/MonthlyScheduleGenerator';
 import { AutoGenerateScheduleModal } from './AutoGenerateScheduleModal';
 import toast from 'react-hot-toast';
 import { useModal } from '../context/ModalContext';
-import { calculateRenderedHours } from '../utils/hours';
+import { calculateRenderedHours, getMonthlyHolidayDates } from '../utils/hours';
 
 // We need a palette of shift types (exclude 'on-leave' as requested)
 const AVAILABLE_SHIFTS = Object.values(SHIFTS).filter(s => s.type !== 'on-leave');
@@ -134,10 +134,9 @@ export function AdminScheduleView() {
     const shiftInfo = AVAILABLE_SHIFTS.find(s => s.type === shiftTypeId);
     if (!shiftInfo) return;
 
-    const isHoliday = shiftInfo.type === 'holiday' || Object.values({ ...shifts, ...pendingChanges }).some(
-      (s: any) => s.date === dateStr && s.shift === 'holiday'
-    );
-    const computedHours = calculateRenderedHours(shiftInfo.type, isHoliday);
+    const holidayDates = getMonthlyHolidayDates(currentDate.getFullYear(), currentDate.getMonth(), { ...shifts, ...pendingChanges });
+    const isHoliday = holidayDates.has(dateStr) || shiftInfo.type === 'holiday';
+    const computedHours = calculateRenderedHours(shiftInfo.type, dateStr, isHoliday);
 
     const key = `${userId}-${dateStr}`;
     const existingCell = pendingChanges[key] || shifts[key];
@@ -257,11 +256,12 @@ export function AdminScheduleView() {
     }
 
     try {
+      const holidayDates = getMonthlyHolidayDates(currentDate.getFullYear(), currentDate.getMonth(), { ...shifts, ...pendingChanges });
       const generated = await MonthlyScheduleGenerator.generate(
         users,
         currentDate.getFullYear(),
         currentDate.getMonth(),
-        { exemptEveningUserIds }
+        { exemptEveningUserIds, customHolidayDates: holidayDates }
       );
       const newPending = { ...pendingChanges };
       // Clear any prior pending changes for the target month first
